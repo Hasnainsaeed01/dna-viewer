@@ -1,0 +1,1496 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="color-scheme" content="light dark" />
+<link rel="icon" href="data:," />
+<title>DNA Viewer — Double Helix Scanner &amp; Sequence Analysis</title>
+<style>
+:root{
+  --a:#22b573; --t:#e5484d; --g:#f08c1e; --c:#2f7fe0; --n:#8b98a5;
+  --radius:10px;
+}
+html[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#070b10; --bg2:#0a1017; --panel:#0e1620; --panel2:#131f2d; --panel3:#182838;
+  --ink:#e8f0f7; --muted:#8fa3b5; --faint:#5f7488;
+  --line:#1e3042; --line2:#2a4258;
+  --accent:#2fbf9b; --accent2:#4aa3e8; --accent-ink:#06281d;
+  --warn:#e8a33d; --warn-bg:#2b2008; --bad:#f2706d; --good:#2fbf9b;
+  --sel:#ffd84d; --motif:#b07fe8;
+  --shadow:0 2px 10px rgba(0,0,0,.45);
+  --tile-txt:#ffffff;
+}
+html[data-theme="light"]{
+  color-scheme:light;
+  --bg:#eef2f5; --bg2:#e6edf2; --panel:#ffffff; --panel2:#f2f6f9; --panel3:#e8eff5;
+  --ink:#12222f; --muted:#54687a; --faint:#8496a6;
+  --line:#d3dee7; --line2:#b9cbd9;
+  --accent:#0e7c66; --accent2:#0b5fa5; --accent-ink:#ffffff;
+  --warn:#9a6206; --warn-bg:#fdf3e0; --bad:#c0392b; --good:#0e7c66;
+  --sel:#b8860b; --motif:#7c3aed;
+  --shadow:0 1px 4px rgba(16,32,48,.12);
+  --tile-txt:#ffffff;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:15px;line-height:1.45;display:flex;flex-direction:column}
+button{font:inherit;cursor:pointer;color:inherit}
+input,select,textarea{font:inherit;color:var(--ink)}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+a{color:var(--accent2)}
+:focus-visible{outline:2px solid var(--accent2);outline-offset:1px}
+
+/* ============ TOP BAR ============ */
+.topbar{flex:0 0 auto;display:flex;align-items:center;gap:16px;background:var(--bg2);border-bottom:1px solid var(--line);padding:9px 16px;flex-wrap:wrap}
+.logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:19px;letter-spacing:.14em;white-space:nowrap}
+.logo .mark{width:34px;height:34px;flex:0 0 34px}
+.topmeta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}
+.meta-item{background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:4px 10px;font-size:12.5px;color:var(--muted);white-space:nowrap}
+.meta-item b{color:var(--ink);font-weight:700}
+.meta-item.file{color:var(--ink);font-weight:600;max-width:300px;overflow:hidden;text-overflow:ellipsis}
+.topbar .spacer{flex:1}
+.scanbtn{background:var(--accent);color:var(--accent-ink);border:0;border-radius:8px;padding:10px 20px;font-weight:800;letter-spacing:.12em;font-size:14px;display:inline-flex;align-items:center;gap:9px}
+.scanbtn .dot{width:9px;height:9px;border-radius:50%;background:currentColor;opacity:.55}
+.scanbtn.on{background:var(--t);color:#fff}
+.scanbtn.on .dot{opacity:1;animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.5)}}
+.iconbtn{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:13px;font-weight:600}
+.iconbtn:hover{border-color:var(--line2)}
+
+/* ============ TAB BAR ============ */
+.tabbar{flex:0 0 auto;display:flex;gap:2px;background:var(--bg2);border-bottom:1px solid var(--line);padding:6px 12px;overflow-x:auto;scrollbar-width:none}
+.tabbar::-webkit-scrollbar{display:none}
+.tabbtn{flex:0 0 auto;background:none;border:0;border-radius:7px;padding:7px 13px;font-size:13.5px;color:var(--muted);font-weight:600;white-space:nowrap}
+.tabbtn:hover{color:var(--ink);background:var(--panel2)}
+.tabbtn.active{background:var(--panel3);color:var(--accent)}
+
+/* ============ LAYOUT ============ */
+main{flex:1;min-height:0;display:flex;flex-direction:column}
+.view{display:none;flex:1;min-height:0;flex-direction:column}
+.view.active{display:flex}
+.view.scrollable{overflow-y:auto;display:none}
+.view.scrollable.active{display:block}
+.wrap{max-width:1180px;margin:0 auto;padding:20px 20px 56px}
+h1{font-size:23px;margin:0 0 4px}
+h2{font-size:17px;margin:0 0 10px}
+h3{font-size:14.5px;margin:0 0 8px}
+.sub{color:var(--muted);margin:0 0 16px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px 18px;margin-bottom:16px}
+.grid{display:grid;gap:14px}
+.grid.cols2{grid-template-columns:repeat(2,1fr)}
+.grid.cols3{grid-template-columns:repeat(3,1fr)}
+.grid.cols4{grid-template-columns:repeat(4,1fr)}
+@media(max-width:900px){.grid.cols3,.grid.cols4{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:560px){.grid.cols2,.grid.cols3,.grid.cols4{grid-template-columns:1fr}}
+.stat-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:13px 15px}
+.stat-card .k{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.stat-card .v{font-size:24px;font-weight:700;margin-top:2px}
+.stat-card .d{font-size:12.5px;color:var(--muted)}
+.bar{height:8px;border-radius:99px;background:var(--panel3);overflow:hidden;margin-top:8px}
+.bar>i{display:block;height:100%}
+.btn{display:inline-flex;align-items:center;gap:7px;background:var(--accent);color:var(--accent-ink);border:0;border-radius:8px;padding:9px 15px;font-weight:700;font-size:14px}
+html[data-theme="light"] .btn{color:#fff}
+.btn:hover{filter:brightness(1.08)}
+.btn.secondary{background:var(--panel2);color:var(--ink);border:1px solid var(--line)}
+.btn.small{padding:6px 11px;font-size:13px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+textarea.seqin{width:100%;min-height:96px;border:1px solid var(--line);border-radius:8px;background:var(--panel2);padding:11px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;resize:vertical}
+input[type=text],input[type=number],select{border:1px solid var(--line);border-radius:8px;background:var(--panel2);padding:8px 10px}
+label.f{display:block;font-size:13px;font-weight:600;margin-bottom:5px}
+.field{margin-bottom:12px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.msg{border-radius:8px;padding:9px 13px;font-size:13.5px;margin-bottom:12px;display:none}
+.msg.err{display:block;background:rgba(229,72,77,.14);color:var(--bad);border:1px solid var(--bad)}
+.msg.ok{display:block;background:rgba(47,191,155,.13);color:var(--good);border:1px solid var(--line2)}
+.note{background:var(--warn-bg);border:1px solid var(--line);border-radius:8px;padding:10px 14px;font-size:13.5px;margin-bottom:14px}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th{text-align:left;padding:8px 10px;border-bottom:2px solid var(--line);color:var(--muted);font-size:11.5px;text-transform:uppercase;letter-spacing:.05em}
+td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+tr.clickable{cursor:pointer}
+tr.clickable:hover td{background:var(--panel2)}
+.tablewrap{overflow-x:auto}
+@media(max-width:640px){
+  .tablewrap table{min-width:0}
+  .tablewrap thead{display:none}
+  .tablewrap tr{display:block;border-bottom:2px solid var(--line);padding:6px 0}
+  .tablewrap td{display:flex;justify-content:space-between;gap:12px;border-bottom:0;padding:4px 8px}
+  .tablewrap td::before{content:attr(data-l);color:var(--muted);font-size:11.5px;text-transform:uppercase;letter-spacing:.04em}
+}
+.pill{display:inline-block;background:var(--panel2);border:1px solid var(--line);border-radius:99px;padding:2px 10px;font-size:12.5px;margin:2px 2px 2px 0}
+.chk{display:inline-flex;gap:6px;align-items:center;font-size:14px;margin-right:14px;cursor:pointer}
+.chk input{accent-color:var(--accent);width:16px;height:16px}
+input[type=range]{accent-color:var(--accent)}
+.seqtext{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;word-break:break-all;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px;max-height:300px;overflow:auto;white-space:pre-wrap}
+.frameblock{margin-bottom:16px}
+.frameblock .fh{font-weight:700;font-size:13.5px;margin-bottom:4px}
+.aaseq{font-family:ui-monospace,Menlo,monospace;font-size:14px;letter-spacing:2px;word-break:break-all;line-height:2;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+.aa{display:inline-block;min-width:14px;text-align:center;border-radius:3px}
+.aa.start{background:rgba(47,191,155,.35);font-weight:700}
+.aa.stop{background:rgba(229,72,77,.35);font-weight:700}
+.diff-mis{background:rgba(229,72,77,.4);border-radius:2px}
+.diff-ok{color:var(--muted)}
+.test-pass{color:var(--good);font-weight:600}
+.test-fail{color:var(--bad);font-weight:600}
+
+/* ============ SCANNER ============ */
+.inputbar{flex:0 0 auto;background:var(--panel);border-bottom:1px solid var(--line);padding:10px 16px}
+.inputhead{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.inputhead button{background:none;border:0;padding:0;font-weight:700;font-size:14px;color:var(--ink);cursor:pointer}
+.inputhead span{color:var(--muted);font-size:12.5px}
+.inputgrid{display:grid;grid-template-columns:1fr auto;gap:14px;margin-top:10px}
+@media(max-width:760px){.inputgrid{grid-template-columns:1fr}}
+.scanner{flex:1;min-height:0;display:grid;grid-template-columns:minmax(400px,1.25fr) minmax(330px,1fr);gap:0}
+@media(max-width:900px){.scanner{grid-template-columns:1fr;grid-template-rows:minmax(340px,52vh) auto;overflow-y:auto}}
+.panel{display:flex;flex-direction:column;min-height:0;min-width:0}
+.panel.left{border-right:1px solid var(--line);background:var(--bg2)}
+.panel.right{overflow-y:auto;background:var(--panel);padding:16px 18px}
+@media(max-width:900px){.panel.left{border-right:0;border-bottom:1px solid var(--line)}.panel.right{overflow:visible}}
+.panelhead{flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.panelhead h2{margin:0;font-size:16px}
+.panelhead .spacer{flex:1}
+.zoomctl{display:inline-flex;align-items:center;gap:4px}
+.zoomctl button{width:30px;height:30px;border-radius:7px;background:var(--panel2);border:1px solid var(--line);font-size:16px;font-weight:700;line-height:1}
+.zoomctl span{font-size:12px;color:var(--muted);min-width:42px;text-align:center}
+.scanctl{flex:0 0 auto;display:flex;align-items:center;gap:12px;padding:9px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap;background:var(--panel)}
+.scanctl label{font-size:12.5px;color:var(--muted);font-weight:600;display:inline-flex;align-items:center;gap:7px}
+.scanctl input[type=range]{width:130px}
+.jumpctl{display:flex;align-items:center;gap:8px;flex:1;min-width:220px}
+.jumpctl input[type=range]{flex:1}
+.jumpctl input[type=number]{width:92px}
+.playbtn{background:var(--accent);color:var(--accent-ink);border:0;border-radius:8px;padding:8px 16px;font-weight:800;font-size:13.5px;letter-spacing:.05em}
+html[data-theme="light"] .playbtn{color:#fff}
+.playbtn.on{background:var(--t);color:#fff}
+.motifbar{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:8px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap;background:var(--panel)}
+.motifbar input[type=text]{flex:1;min-width:130px;text-transform:uppercase}
+.motifbar .mcount{font-size:12.5px;color:var(--muted)}
+
+/* helix virtual list */
+#helixScroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;position:relative;overscroll-behavior:contain}
+#helixSpacer{position:relative;width:100%}
+.hrow{position:absolute;left:0;right:0;display:flex;align-items:center}
+.hpos{flex:0 0 62px;text-align:right;padding-right:10px;font-family:ui-monospace,monospace;font-size:11px;color:var(--faint)}
+.hturn{flex:0 0 58px;font-size:10.5px;color:var(--accent2);font-weight:700;white-space:nowrap;overflow:visible}
+.htrack{position:relative;flex:1;height:100%;min-width:0}
+.hbackbone{position:absolute;top:50%;height:2px;background:var(--line2);transform:translateY(-50%);opacity:.5}
+.hrung{position:absolute;top:50%;transform:translateY(-50%);border-top:2px dashed var(--line2);opacity:.85}
+.htile{position:absolute;top:50%;transform:translate(-50%,-50%);display:grid;place-items:center;font-family:ui-monospace,monospace;font-weight:800;color:var(--tile-txt);border-radius:6px;cursor:pointer;user-select:none;box-shadow:0 1px 3px rgba(0,0,0,.35);border:2px solid transparent;z-index:2}
+.htile.back{filter:brightness(.62) saturate(.85);z-index:1}
+.htile.sel{border-color:var(--sel);box-shadow:0 0 0 3px var(--sel),0 0 18px rgba(255,216,77,.45);z-index:5;filter:none}
+.htile.motif{border-color:var(--motif);box-shadow:0 0 0 2px var(--motif)}
+.htile.motif.sel{border-color:var(--sel)}
+.hrow.selrow{background:rgba(255,216,77,.07)}
+.hgroove{flex:0 0 86px;font-size:10.5px;color:var(--warn);font-weight:600;white-space:nowrap;padding-left:6px}
+.hstrandtag{position:absolute;top:2px;font-size:9.5px;color:var(--faint);font-family:ui-monospace,monospace;z-index:3;pointer-events:none}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12.5px;color:var(--muted)}
+.legend .sw{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px;margin-right:5px}
+
+/* right panel details */
+.pairhead{font-size:21px;font-weight:800;margin:0 0 2px}
+.pairhead span{color:var(--muted);font-weight:600;font-size:15px}
+.strandline{display:flex;align-items:center;gap:10px;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:10px 12px;margin-top:10px}
+.strandline .tag{font-size:11px;font-weight:800;letter-spacing:.07em;color:var(--muted);text-transform:uppercase;flex:0 0 58px}
+.strandline .big{width:38px;height:38px;flex:0 0 38px;border-radius:8px;display:grid;place-items:center;font-family:ui-monospace,monospace;font-weight:800;font-size:19px;color:#fff}
+.strandline .nm{font-size:15.5px;font-weight:600}
+.matchline{margin-top:10px;border-radius:9px;padding:11px 13px;font-size:14.5px;font-weight:600;border:1px solid var(--line2);background:rgba(47,191,155,.12)}
+.matchline.amb{background:var(--panel2);color:var(--muted)}
+.matchline .mtag{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.08em;padding:2px 8px;border-radius:99px;background:var(--accent);color:var(--accent-ink);margin-right:8px;vertical-align:1px}
+html[data-theme="light"] .matchline .mtag{color:#fff}
+.matchline.amb .mtag{background:var(--n);color:#fff}
+.stripwrap{margin-top:14px}
+.stripwrap .cap{font-size:12px;color:var(--muted);margin-bottom:6px;font-weight:600}
+.strip{display:flex;gap:3px;overflow-x:auto;padding:4px 2px;scrollbar-width:thin}
+.stripcol{display:flex;flex-direction:column;gap:3px;align-items:center;flex:0 0 auto;cursor:pointer;border-radius:6px;padding:2px}
+.stripcol .st{width:26px;height:26px;border-radius:5px;display:grid;place-items:center;font-family:ui-monospace,monospace;font-weight:800;font-size:13px;color:#fff;border:2px solid transparent}
+.stripcol .sp{font-size:9px;color:var(--faint);font-family:ui-monospace,monospace}
+.stripcol.cur{background:rgba(255,216,77,.1)}
+.stripcol.cur .st{border-color:var(--sel)}
+.stripcol.motif .st{border-color:var(--motif)}
+.factbox{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:12px 14px;margin-top:16px}
+.factbox h3{color:var(--accent);font-size:13px;text-transform:uppercase;letter-spacing:.07em}
+.factbox ul{margin:0;padding-left:18px;font-size:13.5px}
+.factbox li{margin:3px 0}
+.factbox li b{font-weight:700}
+.ministats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:16px}
+@media(max-width:480px){.ministats{grid-template-columns:repeat(2,1fr)}}
+.ministat{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;text-align:center}
+.ministat .k{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.ministat .v{font-size:17px;font-weight:800}
+.basebars{margin-top:12px}
+.basebar{display:flex;align-items:center;gap:8px;font-size:12px;margin:4px 0}
+.basebar .bl{flex:0 0 14px;font-family:ui-monospace,monospace;font-weight:800}
+.basebar .bar{flex:1;margin:0}
+.basebar .bv{flex:0 0 86px;text-align:right;color:var(--muted);font-family:ui-monospace,monospace;font-size:11.5px}
+#gcMini{margin-top:14px}
+#gcMini svg{width:100%;height:auto;display:block;cursor:pointer}
+footer.foot{flex:0 0 auto;color:var(--faint);font-size:12px;text-align:center;padding:8px 12px;border-top:1px solid var(--line);background:var(--bg2)}
+.tooltip{position:fixed;z-index:60;background:var(--ink);color:var(--bg);padding:5px 9px;border-radius:6px;font-size:12px;font-family:ui-monospace,monospace;pointer-events:none;display:none}
+@media(max-width:640px){
+  .logo{font-size:16px}
+  .meta-item.file{max-width:150px}
+  .hpos{flex-basis:48px}
+  .hturn{flex-basis:44px;font-size:9.5px}
+  .hgroove{display:none}
+  .topmeta .hideS{display:none}
+}
+@media (prefers-reduced-motion: reduce){ .scanbtn.on .dot{animation:none} }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="logo">
+    <svg class="mark" viewBox="0 0 40 40" aria-hidden="true"><path d="M13 3 C13 12, 27 16, 27 20 C27 24, 13 28, 13 37" fill="none" stroke="#2fbf9b" stroke-width="3.4" stroke-linecap="round"/><path d="M27 3 C27 12, 13 16, 13 20 C13 24, 27 28, 27 37" fill="none" stroke="#4aa3e8" stroke-width="3.4" stroke-linecap="round"/><line x1="15.5" y1="9" x2="24.5" y2="9" stroke="#8fa3b5" stroke-width="2"/><line x1="14" y1="20" x2="26" y2="20" stroke="#8fa3b5" stroke-width="2"/><line x1="15.5" y1="31" x2="24.5" y2="31" stroke="#8fa3b5" stroke-width="2"/></svg>
+    <span>DNA&nbsp;VIEWER</span>
+  </div>
+  <div class="topmeta">
+    <span class="meta-item file" id="topFile">File: DNA.fasta.txt</span>
+    <span class="meta-item"><b id="topLen">0</b>&nbsp;bp</span>
+    <span class="meta-item hideS"><b id="topNm">0</b>&nbsp;nm long</span>
+    <span class="meta-item hideS"><b id="topTurns">0</b>&nbsp;helix turns</span>
+    <span class="meta-item hideS">GC&nbsp;<b id="topGC">—</b></span>
+  </div>
+  <div class="spacer"></div>
+  <button class="iconbtn" id="themeBtn" type="button" title="Toggle light / dark mode">◐ Theme</button>
+  <button class="scanbtn" id="scanBtn" type="button"><span class="dot"></span><span id="scanBtnTxt">SCANNING</span></button>
+</header>
+
+<nav class="tabbar" id="tabbar" aria-label="Views"></nav>
+
+<main id="main">
+  <!-- ================= SCANNER (home) ================= -->
+  <section class="view active" id="view-scanner">
+    <div class="inputbar" id="inputPanel">
+      <div class="inputhead"><button type="button" id="inputToggle" aria-expanded="true">Load a sequence ▾</button><span>Paste DNA / FASTA, upload a file, or pick a built-in example — everything is processed locally in your browser.</span></div>
+      <div id="inputBody">
+      <div class="msg" id="inputMsg"></div>
+      <div class="inputgrid">
+        <div>
+          <textarea class="seqin" id="seqInput" spellcheck="false" placeholder="Paste a raw DNA sequence, or FASTA text starting with a &gt; header line…"></textarea>
+          <div class="row" style="margin-top:8px">
+            <button class="btn small" id="loadBtn" type="button">Load sequence</button>
+            <label class="btn secondary small" for="fileInput" style="margin:0">Upload FASTA file</label>
+            <input type="file" id="fileInput" accept=".fa,.fasta,.fna,.txt" style="display:none">
+            <button class="btn secondary small" id="clearBtn" type="button">Clear</button>
+            <select id="recordPicker" style="max-width:300px" aria-label="Loaded FASTA records"></select>
+          </div>
+        </div>
+        <div>
+          <label class="f">Built-in examples</label>
+          <div class="row" id="exampleBtns"></div>
+          <p style="color:var(--muted);font-size:12.5px;margin:8px 0 0;max-width:380px" id="exampleDesc"></p>
+        </div>
+      </div>
+      </div>
+    </div>
+
+    <div class="scanner">
+      <!-- LEFT: helix -->
+      <div class="panel left">
+        <div class="panelhead">
+          <h2>Double Helix 3D (DNA)</h2>
+          <div class="spacer"></div>
+          <label class="chk" style="margin:0"><input type="checkbox" id="rcToggle"> Reverse complement</label>
+          <div class="zoomctl" role="group" aria-label="Helix zoom">
+            <button type="button" id="zoomOut" title="Zoom out">−</button>
+            <span id="zoomLbl">100%</span>
+            <button type="button" id="zoomIn" title="Zoom in">+</button>
+          </div>
+        </div>
+        <div class="scanctl">
+          <button class="playbtn" id="playBtn" type="button">▶ Scan</button>
+          <label>Speed <input type="range" id="speedRange" min="1" max="120" value="12"> <span class="mono" id="speedLbl">12 pairs/s</span></label>
+          <div class="jumpctl">
+            <label for="jumpRange" style="flex:0 0 auto">Jump to pair</label>
+            <input type="range" id="jumpRange" min="1" max="1" value="1">
+            <input type="number" id="jumpNum" min="1" value="1" aria-label="Pair number">
+            <button class="btn secondary small" id="jumpGo" type="button">Go</button>
+          </div>
+        </div>
+        <div class="motifbar">
+          <label for="motifInputScanner" style="font-size:12.5px;font-weight:700;color:var(--muted)">Motif</label>
+          <input type="text" id="motifInputScanner" class="mono" placeholder="e.g. TATAAA or GAATTC (IUPAC codes OK)" spellcheck="false">
+          <button class="btn secondary small" id="motifGo" type="button">Highlight in helix</button>
+          <button class="btn secondary small" id="motifPrev" type="button">↑ Prev</button>
+          <button class="btn secondary small" id="motifNext" type="button">↓ Next</button>
+          <span class="mcount" id="motifCount"></span>
+        </div>
+        <div id="helixScroll" tabindex="0" aria-label="Scrollable double helix. Click any base pair to inspect it.">
+          <div id="helixSpacer"></div>
+        </div>
+        <div style="flex:0 0 auto;padding:8px 16px;border-top:1px solid var(--line)">
+          <div class="legend">
+            <span><i class="sw" style="background:var(--a)"></i>A</span>
+            <span><i class="sw" style="background:var(--t)"></i>T</span>
+            <span><i class="sw" style="background:var(--g)"></i>G</span>
+            <span><i class="sw" style="background:var(--c)"></i>C</span>
+            <span><i class="sw" style="background:var(--n)"></i>N</span>
+            <span><i class="sw" style="background:transparent;border:2px solid var(--sel)"></i>Selected pair</span>
+            <span><i class="sw" style="background:transparent;border:2px solid var(--motif)"></i>Motif match</span>
+            <span style="margin-left:auto">Scroll the helix · click any pair to inspect it</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT: pair details -->
+      <div class="panel right" id="detailPanel">
+        <p class="pairhead" id="pairHead">Pair 1 <span>of 0</span></p>
+        <p style="margin:0;color:var(--muted);font-size:13px" id="pairSub">Load a sequence to start scanning.</p>
+        <div class="strandline"><span class="tag">Strand 1<br>5′ → 3′</span><span class="big" id="s1Tile">–</span><span class="nm" id="s1Name">—</span></div>
+        <div class="strandline"><span class="tag">Strand 2<br>3′ → 5′</span><span class="big" id="s2Tile">–</span><span class="nm" id="s2Name">—</span></div>
+        <div class="matchline" id="matchLine"><span class="mtag">MATCH</span><span id="matchTxt">—</span></div>
+
+        <div class="stripwrap">
+          <div class="cap">Neighboring pairs — click a tile to jump</div>
+          <div class="strip" id="pairStrip"></div>
+        </div>
+
+        <div class="ministats" id="miniStats"></div>
+        <div class="basebars" id="baseBars"></div>
+        <div id="gcMini"></div>
+
+        <div class="factbox">
+          <h3>Helix Facts — B-DNA</h3>
+          <ul>
+            <li><b>Rise:</b> 3.4 Å per base pair</li>
+            <li><b>Base pairs per turn:</b> 10.5</li>
+            <li><b>Pitch:</b> 34 Å per full turn</li>
+            <li><b>Diameter:</b> 2.0 nm</li>
+            <li><b>Handedness:</b> right-handed double helix</li>
+            <li><b>Strands:</b> antiparallel (5′→3′ against 3′→5′)</li>
+            <li><b>Major groove:</b> 2.2 nm wide</li>
+            <li><b>Minor groove:</b> 1.2 nm wide</li>
+          </ul>
+        </div>
+        <div class="factbox">
+          <h3>Pairing Rules</h3>
+          <ul>
+            <li><b>A – T:</b> 2 hydrogen bonds (weaker)</li>
+            <li><b>G – C:</b> 3 hydrogen bonds (stronger)</li>
+            <li>Strand 1 runs <b>5′ → 3′</b>; Strand 2 runs <b>3′ → 5′</b></li>
+            <li>Each strand is the exact complement of the other</li>
+          </ul>
+        </div>
+        <div class="row" style="margin-top:16px">
+          <button class="btn secondary small" id="dlFastaBtn" type="button">⬇ FASTA</button>
+          <button class="btn secondary small" id="dlStatsBtn" type="button">⬇ Statistics CSV</button>
+          <button class="btn secondary small" id="dlPngBtn" type="button">⬇ Helix snapshot (PNG)</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- other views are injected by JS -->
+  <div id="toolViews"></div>
+</main>
+<div class="tooltip" id="tooltip"></div>
+<footer class="foot">DNA Viewer runs 100% locally in your browser — no server, no account, sequences never leave this device. Single-file build: save this page and it works offline, e.g. on GitHub Pages.</footer>
+
+<script>
+"use strict";
+/* ============================================================
+   DNA Viewer — core bioinformatics engine (pure functions)
+   ============================================================ */
+var IUPAC_SETS = {A:"A",C:"C",G:"G",T:"T",U:"T",R:"AG",Y:"CT",S:"GC",W:"AT",K:"GT",M:"AC",B:"CGT",D:"AGT",H:"ACT",V:"ACG",N:"ACGT"};
+var COMPLEMENT = {A:"T",T:"A",U:"A",C:"G",G:"C",R:"Y",Y:"R",S:"S",W:"W",K:"M",M:"K",B:"V",V:"B",D:"H",H:"D",N:"N"};
+function complementBase(b){ return COMPLEMENT[b] || "N"; }
+function complementSeq(s){ var out=""; for(var i=0;i<s.length;i++) out+=complementBase(s[i]); return out; }
+function reverseComplement(s){ var out=""; for(var i=s.length-1;i>=0;i--) out+=complementBase(s[i]); return out; }
+function cleanSequence(raw){ return (raw||"").toUpperCase().replace(/[\s\d]/g,""); }
+function parseFASTA(text){
+  var records=[], cur=null;
+  var lines=(text||"").split(/\r?\n/);
+  for(var i=0;i<lines.length;i++){
+    var line=lines[i].trim();
+    if(!line) continue;
+    if(line.charAt(0)===">"){
+      var header=line.slice(1).trim();
+      var sp=header.search(/\s/);
+      cur={ id: sp===-1?header:header.slice(0,sp), description: sp===-1?"":header.slice(sp+1).trim(), seq:"" };
+      records.push(cur);
+    } else {
+      if(!cur){ cur={id:"sequence", description:"", seq:""}; records.push(cur); }
+      cur.seq += line.toUpperCase().replace(/\s/g,"");
+    }
+  }
+  return records.filter(function(r){ return r.seq.length>0; });
+}
+function baseCounts(seq){
+  var c={A:0,T:0,G:0,C:0,other:0};
+  for(var i=0;i<seq.length;i++){ var b=seq[i]; if(c.hasOwnProperty(b)) c[b]++; else c.other++; }
+  return c;
+}
+function gcPercent(seq){
+  if(!seq.length) return 0;
+  var c=baseCounts(seq); return (c.G+c.C)/seq.length*100;
+}
+function gcWindows(seq, win, step){
+  win=Math.max(1,win); step=Math.max(1,step);
+  var out=[];
+  if(!seq.length) return out;
+  if(seq.length<=win){ out.push({start:1,end:seq.length,mid:(1+seq.length)/2,gc:gcPercent(seq)}); return out; }
+  for(var s=0;s+win<=seq.length;s+=step){
+    out.push({start:s+1,end:s+win,mid:s+win/2+1,gc:gcPercent(seq.slice(s,s+win))});
+  }
+  return out;
+}
+var CODON_TABLE = (function(){
+  var bases="TCAG", aas="FFLLSSSSYY**CC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG", t={};
+  var i=0;
+  for(var a=0;a<4;a++)for(var b=0;b<4;b++)for(var c=0;c<4;c++){ t[bases[a]+bases[b]+bases[c]]=aas[i++]; }
+  return t;
+})();
+var GENETIC_CODES = {
+  standard:{name:"Standard (NCBI 1)", overrides:{}},
+  mito_vert:{name:"Vertebrate Mitochondrial (NCBI 2)", overrides:{AGA:"*",AGG:"*",ATA:"M",TGA:"W"}},
+  mito_yeast:{name:"Yeast Mitochondrial (NCBI 3)", overrides:{ATA:"M",CTC:"T",CTT:"T",CTA:"T",CTG:"T",TGA:"W",CGA:"A",CGC:"A"}},
+  bacterial:{name:"Bacterial / Plant Plastid (NCBI 11)", overrides:{}}
+};
+function codonTableFor(codeKey){
+  var t={}; for(var k in CODON_TABLE) t[k]=CODON_TABLE[k];
+  var ov=(GENETIC_CODES[codeKey]||GENETIC_CODES.standard).overrides;
+  for(var k2 in ov) t[k2]=ov[k2];
+  return t;
+}
+function translateFrame(seq, offset, table){
+  var aa="";
+  for(var i=offset;i+3<=seq.length;i+=3){
+    var codon=seq.slice(i,i+3).replace(/U/g,"T");
+    aa += table[codon] || "X";
+  }
+  return aa;
+}
+var STOP_CODONS=["TAA","TAG","TGA"];
+function findORFs(seq, minNt, codeKey){
+  var table=codonTableFor(codeKey||"standard"), orfs=[];
+  var strands=[{strand:"+", s:seq},{strand:"-", s:reverseComplement(seq)}];
+  strands.forEach(function(st){
+    for(var frame=0;frame<3;frame++){
+      var i=frame;
+      while(i+3<=st.s.length){
+        var codon=st.s.slice(i,i+3);
+        if(codon==="ATG"){
+          var j=i;
+          while(j+3<=st.s.length){
+            var c2=st.s.slice(j,j+3);
+            if(table[c2]==="*"){
+              var len=j+3-i;
+              if(len>=minNt){
+                var prot=translateFrame(st.s.slice(i,j+3),0,table).replace(/\*$/,"");
+                var start,end;
+                if(st.strand==="+"){ start=i+1; end=j+3; }
+                else { start=seq.length-(j+3)+1; end=seq.length-i; }
+                orfs.push({start:start,end:end,strand:st.strand,frame:frame+1,lengthNt:len,lengthAa:prot.length,protein:prot,stopCodon:c2});
+              }
+              break;
+            }
+            j+=3;
+          }
+          i = (j+3<=st.s.length && table[st.s.slice(j,j+3)]==="*") ? j+3 : i+3;
+        } else i+=3;
+      }
+    }
+  });
+  orfs.sort(function(a2,b2){ return b2.lengthNt-a2.lengthNt; });
+  return orfs;
+}
+var ENZYMES=[
+  {name:"EcoRI", site:"GAATTC", cut:1},
+  {name:"BamHI", site:"GGATCC", cut:1},
+  {name:"HindIII", site:"AAGCTT", cut:1},
+  {name:"NotI", site:"GCGGCCGC", cut:2},
+  {name:"XhoI", site:"CTCGAG", cut:1},
+  {name:"PstI", site:"CTGCAG", cut:5},
+  {name:"SmaI", site:"CCCGGG", cut:3},
+  {name:"KpnI", site:"GGTACC", cut:5},
+  {name:"SalI", site:"GTCGAC", cut:1},
+  {name:"HaeIII", site:"GGCC", cut:2}
+];
+function iupacMatchAt(seq, pos, pattern){
+  for(var k=0;k<pattern.length;k++){
+    var set=IUPAC_SETS[pattern[k]]; if(!set) return false;
+    if(set.indexOf(seq[pos+k])===-1) return false;
+  }
+  return true;
+}
+function findMotif(seq, motif, circular){
+  motif=(motif||"").toUpperCase().replace(/\s/g,"");
+  var hits=[]; if(!motif) return hits;
+  if(motif.length>seq.length && !circular) return hits;
+  var hay = circular ? seq + seq.slice(0, Math.max(0,motif.length-1)) : seq;
+  var limit = circular ? seq.length : seq.length - motif.length;
+  for(var i=0;i<=limit;i++){ if(iupacMatchAt(hay,i,motif)) hits.push(i+1); }
+  return hits;
+}
+function findRestrictionSites(seq, enzymeNames, circular){
+  var sites=[];
+  ENZYMES.forEach(function(e){
+    if(enzymeNames.indexOf(e.name)===-1) return;
+    findMotif(seq, e.site, circular).forEach(function(p){ sites.push({enzyme:e.name, site:e.site, pos:p, strand:"+", cutPos: ((p-1+e.cut-1) % (seq.length||1)) + 1 }); });
+    var rc=reverseComplement(e.site);
+    if(rc!==e.site){
+      findMotif(seq, rc, circular).forEach(function(p){ sites.push({enzyme:e.name, site:rc, pos:p, strand:"-", cutPos: ((p-1+(e.site.length-e.cut)-1) % (seq.length||1)) + 1 }); });
+    }
+  });
+  sites.sort(function(a,b){ return a.pos-b.pos; });
+  return sites;
+}
+function restrictionFragments(seqLen, sites, circular){
+  var cuts=sites.map(function(s){return s.cutPos;}).filter(function(v,i,a){return a.indexOf(v)===i;}).sort(function(a,b){return a-b;});
+  if(!cuts.length) return seqLen?[seqLen]:[];
+  var frags=[], prev=0, i;
+  if(circular){
+    for(i=0;i<cuts.length;i++){ var len=(cuts[(i+1)%cuts.length]-cuts[i]+seqLen)%seqLen; if(len===0) len=seqLen; frags.push(len); }
+  } else {
+    cuts.forEach(function(cp){ frags.push(cp-prev); prev=cp; });
+    frags.push(seqLen-prev);
+  }
+  return frags.filter(function(f){return f>0;}).sort(function(a,b){return b-a;});
+}
+function codonUsage(seq, frame){
+  var counts={}, total=0;
+  for(var i=frame||0;i+3<=seq.length;i+=3){
+    var cod=seq.slice(i,i+3); if(/^[ACGT]{3}$/.test(cod)){ counts[cod]=(counts[cod]||0)+1; total++; }
+  }
+  return {counts:counts, total:total};
+}
+var AA_CODONS={F:["TTT","TTC"],L:["TTA","TTG","CTT","CTC","CTA","CTG"],I:["ATT","ATC","ATA"],M:["ATG"],V:["GTT","GTC","GTA","GTG"],S:["TCT","TCC","TCA","TCG","AGT","AGC"],P:["CCT","CCC","CCA","CCG"],T:["ACT","ACC","ACA","ACG"],A:["GCT","GCC","GCA","GCG"],Y:["TAT","TAC"],H:["CAT","CAC"],Q:["CAA","CAG"],N:["AAT","AAC"],K:["AAA","AAG"],D:["GAT","GAC"],E:["GAA","GAG"],C:["TGT","TGC"],W:["TGG"],R:["CGT","CGC","CGA","CGG","AGA","AGG"],G:["GGT","GGC","GGA","GGG"],"*":["TAA","TAG","TGA"]};
+function rscu(counts){
+  var out={};
+  Object.keys(AA_CODONS).forEach(function(aa){
+    var cods=AA_CODONS[aa], sum=0;
+    cods.forEach(function(c){ sum+=counts[c]||0; });
+    cods.forEach(function(c){ out[c]= sum===0?0:(counts[c]||0)/(sum/cods.length); });
+  });
+  return out;
+}
+function dinucleotideFreq(seq){
+  var counts={}, total=0;
+  for(var i=0;i+2<=seq.length;i++){ var d=seq.slice(i,i+2); if(/^[ACGT]{2}$/.test(d)){ counts[d]=(counts[d]||0)+1; total++; } }
+  return {counts:counts,total:total};
+}
+function downloadFile(name, content, type){
+  var blob = content instanceof Blob ? content : new Blob([content],{type:type||"text/plain"});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement("a"); a.href=url; a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(function(){ URL.revokeObjectURL(url); a.remove(); },500);
+}
+function toFASTA(records, width){
+  width=width||70;
+  return records.map(function(r){
+    var out=">"+r.id+(r.description?" "+r.description:"")+"\n";
+    for(var i=0;i<r.seq.length;i+=width) out+=r.seq.slice(i,i+width)+"\n";
+    return out;
+  }).join("");
+}
+/* Deterministic synthetic DNA (seeded) — used for the long example so the
+   single file stays small while still shipping a real 20,000 bp sequence. */
+function seededDNA(length, seed, gcFrac){
+  var x=seed>>>0 || 123456789, out="";
+  function rnd(){ x^=x<<13; x>>>=0; x^=x>>17; x^=x<<5; x>>>=0; return x/4294967296; }
+  for(var i=0;i<length;i++){
+    var r=rnd();
+    if(r<gcFrac/2) out+="G"; else if(r<gcFrac) out+="C";
+    else if(r<gcFrac+(1-gcFrac)/2) out+="A"; else out+="T";
+  }
+  return out;
+}
+function buildLongExample(){
+  var s=seededDNA(20000, 987654321, 0.52);
+  /* embed recognizable landmarks at known spots: TATA box, EcoRI, a full ORF, BamHI */
+  function splice(str, pos, sub){ return str.slice(0,pos)+sub+str.slice(pos+sub.length); }
+  s=splice(s, 4000, "TATAAA");
+  s=splice(s, 8000, "GAATTC");
+  s=splice(s, 12000, "ATG" + seededDNA(597, 424242, 0.5).replace(/TAA|TAG|TGA/g,"TCA") + "TAA");
+  s=splice(s, 16000, "GGATCC");
+  return s;
+}
+</script>
+
+<script>
+"use strict";
+/* ============================================================
+   UI layer — scanner + tools
+   ============================================================ */
+var BASE_NAMES={A:"Adenine",T:"Thymine",G:"Guanine",C:"Cytosine",U:"Uracil",N:"Unknown base"};
+var BASE_HEX={A:"#22b573",T:"#e5484d",G:"#f08c1e",C:"#2f7fe0",N:"#8b98a5"};
+var EXAMPLES={
+  long:{name:"Long example — DNA.fasta (20,000 bp)", file:"DNA.fasta.txt", desc:"Synthetic 20,000 bp sequence like the original viewer's file, with a TATA box at 4,001, an EcoRI site at 8,001, an ORF-like region near 12,001 and a BamHI site at 16,001. Generated deterministically in the page, so it is identical on every load.", gen:true},
+  puc19:{name:"pUC19 MCS region", desc:"Real multiple-cloning-site region of the pUC19 cloning vector, containing EcoRI, BamHI, HindIII, KpnI, SmaI, PstI, SalI and XhoI sites.", seq:"TTGTCAGACATTAATGTGAGTTAGCTCACTCATTAGGCACCCCAGGCTTTACACTTTATGCTTCCGGCTCGTATGTTGTGTGGAATTGTGAGCGGATAACAATTTCACACAGGAAACAGCTATGACCATGATTACGCCAAGCTTGCATGCCTGCAGGTCGACTCTAGAGGATCCCCGGGTACCGAGCTCGAATTCACTGGCCGTCGTTTTACAACGTCGTGACTGGGAAAACCCTGGCGTTACCCAACTTAATCGCCTTGCAGCACATCCCCCTTTCGCCAGCTGGCGTAATAGCGAAGAGGCCCGCACCGATCGCCCTTCCCAACAGTTGCGCAGCCTGAATGGCGAATGGCGCCTGATGCGGTATTTTCTCCTTACGCATCTGTGCGGTATTTCACACCGCATATGGTGCACTCTCAGTACAATCTGCTCTGATGCCGCATAGTTAAGCCAGTATACACTCCGCTATCGCTACGTGACTGGGTCATGGCTGCGCCCCGACACCCGCCAACACCCGCTGACGCGCCCTGACGGGCTTGTCTGCTCCCGGCATCCGCTTACAGACAAGCTGTGACCGTCTCCGGGAGCTGCATGTGTCAGAGGTTTTCACCGTCATCACCGAAACGCGCGAGGCAGCAGATCAATTC"},
+  egfp:{name:"EGFP coding sequence (complete CDS)", desc:"Real complete coding sequence of enhanced GFP (720 bp including the stop codon), starting with the ATG start codon. The ORF Finder reports one long 720 nt ORF on frame +1.", seq:"ATGGTGAGCAAGGGCGAGGAGCTGTTCACCGGGGTGGTGCCCATCCTGGTCGAGCTGGACGGCGACGTAAACGGCCACAAGTTCAGCGTGTCCGGCGAGGGCGAGGGCGATGCCACCTACGGCAAGCTGACCCTGAAGTTCATCTGCACCACCGGCAAGCTGCCCGTGCCCTGGCCCACCCTCGTGACCACCCTGACCTACGGCGTGCAGTGCTTCAGCCGCTACCCCGACCACATGAAGCAGCACGACTTCTTCAAGTCCGCCATGCCCGAAGGCTACGTCCAGGAGCGCACCATCTTCTTCAAGGACGACGGCAACTACAAGACCCGCGCCGAGGTGAAGTTCGAGGGCGACACCCTGGTGAACCGCATCGAGCTGAAGGGCATCGACTTCAAGGAGGACGGCAACATCCTGGGGCACAAGCTGGAGTACAACTACAACAGCCACAACGTCTATATCATGGCCGACAAGCAGAAGAACGGCATCAAGGTGAACTTCAAGATCCGCCACAACATCGAGGACGGCAGCGTGCAGCTCGCCGACCACTACCAGCAGAACACCCCCATCGGCGACGGCCCCGTGCTGCTGCCCGACAACCACTACCTGAGCACCCAGTCCGCCCTGAGCAAAGACCCCAACGAGAAGCGCGATCACATGGTCCTGCTGGAGTTCGTGACCGCCGCCGGGATCACTCTCGGCATGGACGAGCTGTACAAGTAA"},
+  synthetic:{name:"Synthetic test sequence", desc:"Constructed test sequence with a known ORF, an EcoRI site (GAATTC), a BamHI site (GGATCC), a TATA-box motif (TATAAA) and ambiguous bases (N, R, Y) for validating the tools.", seq:"GGGCTATAAATATAAAAGGGCCCAAATTTGGGATGAAAGCTTTTGGCCATGGATCCAAATTTGGGCCCAAGCTTGGCCAATGAATTCGTTAACCGGNNACGTRYGGGAAATTTCCCGGGATCCAGCTTTAATTAAGGCCGGCCATGCGTACGTTAGCGGCCGCAAGCTTNNNNACGTACGTAGCTAGCTGAATTCGGATCCAAATGGCCATGGCGCGCGTTAACCCGGGGTTTAAACCCGGGATCCGATCGATCGTAGCTAGCATCGATCGATCGTACGATCGAGCTCGAGATCTAGCTACGATCGATGAATTCGGGGCCCCAAATTTGGGCCCGGATCCATGGCGCGCGTAGCTGACTGACTGACTGATCGATGAATTCTAGCTAGCATCGATCGTACGATCGTACGATCGATCGGATCCAAATTTGGGCCCAAGCTTGGCCAATTGGCCAATGGATCCGAATTC"}
+};
+var TABS=[
+  {id:"scanner", label:"Helix Scanner"},
+  {id:"stats", label:"Statistics"},
+  {id:"gc", label:"GC Analysis"},
+  {id:"translation", label:"Translation"},
+  {id:"orf", label:"ORF Finder"},
+  {id:"restriction", label:"Restriction Map"},
+  {id:"motif", label:"Motif Search"},
+  {id:"compare", label:"Comparison"},
+  {id:"codon", label:"Codon Analysis"},
+  {id:"export", label:"Export"},
+  {id:"tests", label:"Tests & Info"}
+];
+var state={
+  records:[], current:0, seq:"", name:"", fileName:"DNA.fasta.txt",
+  view:"scanner",
+  sel:1, zoom:1, rc:false,
+  scanning:false, speed:12, scanAcc:0, lastTick:0,
+  motif:"", motifHits:[], motifSet:{},
+  code:"standard",
+  lastORFs:[], lastSites:[], lastMotifs:[], lastGC:[]
+};
+function $(id){ return document.getElementById(id); }
+function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+function fmt(n){ return n.toLocaleString("en-US"); }
+function pct(x){ return (Math.round(x*100)/100).toFixed(2)+"%"; }
+function currentRecord(){ return state.records[state.current]||null; }
+function displaySeq(){ return state.rc ? reverseComplement(state.seq) : state.seq; }
+function rowH(){ return Math.round(36*state.zoom); }
+function tileSize(){ return Math.round(27*state.zoom); }
+function baseColor(b){ return BASE_HEX[b]||BASE_HEX.N; }
+function baseName(b){ return (BASE_NAMES[b]||"Ambiguous base")+" ("+b+")"; }
+
+/* ---------------- sequence loading ---------------- */
+function setSequence(records, idx, fileName){
+  state.records=records; state.current=idx||0;
+  var rec=currentRecord();
+  state.seq=rec?rec.seq:""; state.name=rec?rec.id:"";
+  if(fileName) state.fileName=fileName;
+  state.sel=1; state.lastORFs=[]; state.lastSites=[]; state.lastMotifs=[];
+  stopScan();
+  updateTopbar(); renderRecordPicker(); applyMotif(false);
+  var sc=$("helixScroll"); if(sc) sc.scrollTop=0;
+  renderHelix(true); updateDetails(); renderMiniStats();
+  if(state.view==="stats") renderStats();
+}
+function loadFromText(fromFile){
+  var raw=$("seqInput").value, msg=$("inputMsg");
+  if(!raw.trim()){ msg.className="msg err"; msg.textContent="Paste a sequence or FASTA text first, or load one of the examples."; msg.style.display="block"; return; }
+  var records;
+  if(raw.trim().charAt(0)===">"){ records=parseFASTA(raw); }
+  else { var s=cleanSequence(raw); records= s? [{id:"sequence", description:"pasted sequence", seq:s}] : []; }
+  if(!records.length){ msg.className="msg err"; msg.textContent="No sequence could be read from that input."; return; }
+  setSequence(records,0, fromFile||"pasted-sequence.txt");
+  msg.className="msg ok";
+  msg.textContent="Loaded "+records.length+" record(s), "+fmt(state.seq.length)+" bp. Showing the double helix scanner.";
+}
+function updateTopbar(){
+  var len=state.seq.length;
+  $("topFile").textContent="File: "+state.fileName;
+  $("topLen").textContent=fmt(len);
+  $("topNm").textContent=fmt(Math.round(len*0.34));
+  $("topTurns").textContent=len? (len/10.5).toLocaleString("en-US",{maximumFractionDigits:1}) : "0";
+  $("topGC").textContent=len? pct(gcPercent(state.seq)) : "—";
+  var jr=$("jumpRange"); jr.max=Math.max(1,len); if(state.sel>len) state.sel=Math.max(1,len);
+  jr.value=state.sel; $("jumpNum").max=len; $("jumpNum").value=state.sel;
+}
+function renderRecordPicker(){
+  var sel=$("recordPicker"); if(!sel) return;
+  sel.innerHTML = state.records.length
+    ? state.records.map(function(r,i){ return '<option value="'+i+'"'+(i===state.current?" selected":"")+'>'+esc(r.id)+" — "+fmt(r.seq.length)+" bp</option>"; }).join("")
+    : '<option value="">No records loaded</option>';
+}
+
+/* ---------------- helix (virtualized) ---------------- */
+var helixRAF=false;
+function helixGeom(){
+  var sc=$("helixScroll");
+  var w=sc.clientWidth;
+  var grooveW = w>640 ? 86 : 0;
+  var trackW=Math.max(120, w-62-58-grooveW);
+  var ts=tileSize();
+  var amp=Math.max(18, Math.min(96, trackW/2 - ts/2 - 8));
+  return {trackW:trackW, amp:amp, cx:trackW/2, ts:ts};
+}
+function strandX(i, g, strand){
+  var th=(i-1)*(2*Math.PI/10.5);
+  var s=Math.sin(th);
+  return g.cx + (strand===1? s : -s)*g.amp;
+}
+function renderHelix(force){
+  var sc=$("helixScroll"), sp=$("helixSpacer");
+  if(!sc||!sp) return;
+  var seq=displaySeq(), total=seq.length, rh=rowH();
+  sp.style.height=(total*rh)+"px";
+  if(!total){ sp.innerHTML='<p style="padding:18px;color:var(--muted)">No sequence loaded. Open “Load a sequence” above and paste, upload, or pick an example.</p>'; return; }
+  var g=helixGeom();
+  var st=sc.scrollTop, vh=sc.clientHeight||400;
+  var first=Math.max(0, Math.floor(st/rh)-4);
+  var last=Math.min(total-1, Math.ceil((st+vh)/rh)+4);
+  var html="";
+  for(var idx=first; idx<=last; idx++){
+    var pos=idx+1, b1=seq[idx], b2=complementBase(b1);
+    var x1=strandX(pos,g,1), x2=strandX(pos,g,2);
+    var th=(pos-1)*(2*Math.PI/10.5), depth=Math.cos(th);
+    var back1=depth<0, back2=!back1;
+    var turn=Math.floor((pos-1)/10.5)+1;
+    var isTurnStart = pos===1 || Math.floor((pos-2)/10.5)!==Math.floor((pos-1)/10.5);
+    var groove = (pos%11===3) ? "Major groove" : (pos%11===8 ? "Minor groove" : "");
+    var sel = pos===state.sel;
+    var inMotif = !!state.motifSet[pos];
+    /* backbone connectors to next row */
+    var bb="";
+    if(idx<total-1){
+      var nx1=strandX(pos+1,g,1), nx2=strandX(pos+1,g,2);
+      [[x1,nx1,1],[x2,nx2,2]].forEach(function(pr){
+        var dx=pr[1]-pr[0], dy=rh, len=Math.sqrt(dx*dx+dy*dy), ang=Math.atan2(dy,dx)*180/Math.PI;
+        bb+='<div class="hbackbone" style="left:'+pr[0].toFixed(1)+'px;top:'+(rh/2)+'px;width:'+len.toFixed(1)+'px;transform:rotate('+ang.toFixed(1)+'deg);transform-origin:0 50%"></div>';
+      });
+    }
+    var rung='<div class="hrung" style="left:'+Math.min(x1,x2).toFixed(1)+'px;width:'+Math.abs(x2-x1).toFixed(1)+'px"></div>';
+    var t1='<div class="htile'+(back1?" back":"")+(sel?" sel":"")+(inMotif?" motif":"")+'" data-pos="'+pos+'" title="Pair '+pos+": "+b1+"–"+b2+'" style="left:'+x1.toFixed(1)+'px;width:'+g.ts+'px;height:'+g.ts+'px;font-size:'+Math.round(g.ts*0.55)+'px;background:'+baseColor(b1)+'">'+b1+'</div>';
+    var t2='<div class="htile'+(back2?" back":"")+(sel?" sel":"")+(inMotif?" motif":"")+'" data-pos="'+pos+'" title="Pair '+pos+": "+b1+"–"+b2+'" style="left:'+x2.toFixed(1)+'px;width:'+g.ts+'px;height:'+g.ts+'px;font-size:'+Math.round(g.ts*0.55)+'px;background:'+baseColor(b2)+'">'+b2+'</div>';
+    html+='<div class="hrow'+(sel?" selrow":"")+'" style="top:'+(idx*rh)+'px;height:'+rh+'px">'
+      +'<div class="hpos" style="'+(pos%5===0||sel?'color:var(--muted);font-weight:700':'')+'">'+pos+'</div>'
+      +'<div class="hturn">'+(isTurnStart? "Turn "+turn : "")+'</div>'
+      +'<div class="htrack">'+bb+rung+t1+t2
+      +(pos===1? '<span class="hstrandtag" style="left:'+(x1-8)+'px">5′</span><span class="hstrandtag" style="left:'+(x2-8)+'px">3′</span>':"")
+      +'</div>'
+      +'<div class="hgroove">'+groove+'</div></div>';
+  }
+  sp.innerHTML=html;
+}
+function requestHelixRender(){
+  if(helixRAF) return; helixRAF=true;
+  requestAnimationFrame(function(){ helixRAF=false; renderHelix(); });
+}
+function ensureVisible(pos, center){
+  var sc=$("helixScroll"); if(!sc) return;
+  var rh=rowH(), top=(pos-1)*rh, vh=sc.clientHeight;
+  if(center){ sc.scrollTop=Math.max(0, top-vh/2+rh/2); return; }
+  if(top < sc.scrollTop+rh) sc.scrollTop=Math.max(0, top-vh/2+rh/2);
+  else if(top+rh > sc.scrollTop+vh-rh) sc.scrollTop=Math.max(0, top-vh/2+rh/2);
+}
+
+/* ---------------- selection & details ---------------- */
+function selectPair(pos, scrollMode){
+  var total=displaySeq().length; if(!total) return;
+  pos=Math.max(1, Math.min(total, Math.round(pos)||1));
+  state.sel=pos;
+  $("jumpRange").value=pos; $("jumpNum").value=pos;
+  if(scrollMode==="center") ensureVisible(pos,true);
+  else if(scrollMode==="auto") ensureVisible(pos,false);
+  renderHelix(); updateDetails();
+}
+function updateDetails(){
+  var seq=displaySeq(), total=seq.length;
+  if(!total){
+    $("pairHead").innerHTML='Pair 0 <span>of 0</span>';
+    $("pairSub").textContent="Load a sequence to start scanning.";
+    return;
+  }
+  var pos=state.sel, b1=seq[pos-1], b2=complementBase(b1);
+  var turn=Math.floor((pos-1)/10.5)+1;
+  $("pairHead").innerHTML="Pair "+fmt(pos)+' <span>of '+fmt(total)+"</span>";
+  $("pairSub").textContent="Turn "+turn+" · "+((pos-1)*0.34).toFixed(1)+" nm from the 5′ end · twist "+Math.round(((pos-1)*360/10.5)%360)+"°"+(state.rc?" · viewing reverse complement":"");
+  var t1=$("s1Tile"), t2=$("s2Tile");
+  t1.textContent=b1; t1.style.background=baseColor(b1);
+  t2.textContent=b2; t2.style.background=baseColor(b2);
+  $("s1Name").textContent=baseName(b1);
+  $("s2Name").textContent=baseName(b2);
+  var ml=$("matchLine"), mt=$("matchTxt");
+  if("ACGT".indexOf(b1)>-1){
+    ml.className="matchline";
+    var bonds=(b1==="A"||b1==="T")?2:3;
+    ml.querySelector(".mtag").textContent="MATCH";
+    mt.textContent=b1+" pairs with "+b2+" through "+bonds+" hydrogen bonds ("+(bonds===2?"weaker":"stronger")+")";
+  } else {
+    ml.className="matchline amb";
+    ml.querySelector(".mtag").textContent="AMBIGUOUS";
+    mt.textContent=b1+" is an ambiguous base — its partner and hydrogen-bond count depend on the actual base at this position";
+  }
+  /* neighboring strip */
+  var half=9, from=Math.max(1,pos-half), to=Math.min(total,pos+half), sh="";
+  for(var p=from;p<=to;p++){
+    var c1=seq[p-1], c2=complementBase(c1);
+    sh+='<div class="stripcol'+(p===pos?" cur":"")+((state.motifSet[p])?" motif":"")+'" data-strip="'+p+'" title="Pair '+p+'">'
+      +'<span class="st" style="background:'+baseColor(c1)+'">'+c1+'</span>'
+      +'<span class="st" style="background:'+baseColor(c2)+'">'+c2+'</span>'
+      +'<span class="sp">'+p+'</span></div>';
+  }
+  var strip=$("pairStrip"); strip.innerHTML=sh;
+  Array.prototype.forEach.call(strip.querySelectorAll("[data-strip]"),function(el){
+    el.addEventListener("click",function(){ selectPair(parseInt(el.getAttribute("data-strip"),10),"auto"); });
+  });
+  var cur=strip.querySelector(".stripcol.cur");
+  if(cur) strip.scrollLeft = cur.offsetLeft - strip.clientWidth/2 + 16;
+  drawGcMini();
+}
+function renderMiniStats(){
+  var seq=state.seq, el=$("miniStats"), bb=$("baseBars");
+  if(!seq){ el.innerHTML=""; bb.innerHTML=""; $("gcMini").innerHTML=""; return; }
+  var c=baseCounts(seq), gc=gcPercent(seq);
+  el.innerHTML=
+    '<div class="ministat"><div class="k">Length</div><div class="v">'+fmt(seq.length)+'</div><div class="k">bp</div></div>'
+    +'<div class="ministat"><div class="k">GC content</div><div class="v">'+pct(gc)+'</div><div class="k">G + C</div></div>'
+    +'<div class="ministat"><div class="k">Helix turns</div><div class="v">'+(seq.length/10.5).toFixed(1)+'</div><div class="k">10.5 bp/turn</div></div>'
+    +'<div class="ministat"><div class="k">Length</div><div class="v">'+fmt(Math.round(seq.length*0.34))+'</div><div class="k">nm</div></div>';
+  bb.innerHTML=["A","T","G","C"].map(function(b){
+    var col={A:"var(--a)",T:"var(--t)",G:"var(--g)",C:"var(--c)"}[b];
+    return '<div class="basebar"><span class="bl" style="color:'+col+'">'+b+'</span><div class="bar"><i style="width:'+(c[b]/seq.length*100)+'%;background:'+col+'"></i></div><span class="bv">'+fmt(c[b])+" · "+pct(c[b]/seq.length*100)+"</span></div>";
+  }).join("") + (c.other? '<p style="font-size:12px;color:var(--muted);margin:6px 0 0">Plus '+fmt(c.other)+' ambiguous base(s).</p>':"");
+  drawGcMini();
+}
+function drawGcMini(){
+  var el=$("gcMini"); if(!el) return;
+  var seq=state.seq; if(!seq){ el.innerHTML=""; return; }
+  var win=Math.max(25, Math.round(seq.length/100)), step=Math.max(5, Math.round(seq.length/140));
+  var pts=gcWindows(seq, win, step);
+  var W=520,H=110,pl=30,pr=6,pt=8,pb=16, iw=W-pl-pr, ih=H-pt-pb;
+  function X(x){ return pl+(x-1)/Math.max(1,seq.length-1)*iw; }
+  function Y(gv){ return pt+(100-gv)/100*ih; }
+  var path=pts.map(function(p,i){ return (i===0?"M":"L")+X(p.mid).toFixed(1)+","+Y(p.gc).toFixed(1); }).join(" ");
+  var selX=X(state.sel);
+  el.innerHTML='<div class="cap" style="font-size:12px;color:var(--muted);font-weight:600;margin-bottom:4px">GC content along the sequence — click to jump</div>'
+    +'<svg id="gcMiniSvg" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="GC content mini chart">'
+    +'<line x1="'+pl+'" y1="'+Y(50)+'" x2="'+(W-pr)+'" y2="'+Y(50)+'" stroke="var(--line)"/>'
+    +'<text x="'+(pl-4)+'" y="'+(Y(100)+4)+'" text-anchor="end" font-size="9" fill="var(--muted)">100%</text>'
+    +'<text x="'+(pl-4)+'" y="'+(Y(0)+4)+'" text-anchor="end" font-size="9" fill="var(--muted)">0%</text>'
+    +'<path d="'+path+'" fill="none" stroke="var(--accent)" stroke-width="1.8"/>'
+    +'<line x1="'+selX+'" y1="'+pt+'" x2="'+selX+'" y2="'+(pt+ih)+'" stroke="var(--sel)" stroke-width="2"/>'
+    +'<text x="'+pl+'" y="'+(H-2)+'" font-size="9" fill="var(--muted)">1</text>'
+    +'<text x="'+(W-pr)+'" y="'+(H-2)+'" text-anchor="end" font-size="9" fill="var(--muted)">'+fmt(seq.length)+'</text></svg>';
+  var svg=$("gcMiniSvg");
+  svg.addEventListener("click",function(e){
+    var r=svg.getBoundingClientRect();
+    var frac=((e.clientX-r.left)/r.width*W-pl)/iw;
+    selectPair(Math.round(frac*(seq.length-1))+1,"center");
+  });
+}
+
+/* ---------------- scanning ---------------- */
+var scanTimer=null;
+function setScanUI(){
+  $("scanBtn").classList.toggle("on", state.scanning);
+  $("scanBtnTxt").textContent=state.scanning? "PAUSE" : "SCANNING";
+  $("playBtn").classList.toggle("on", state.scanning);
+  $("playBtn").textContent=state.scanning? "⏸ Pause" : "▶ Scan";
+}
+function startScan(){
+  var total=displaySeq().length; if(!total) return;
+  if(state.sel>=total) selectPair(1,"center");
+  state.scanning=true; state.lastTick=performance.now(); state.scanAcc=0;
+  if(scanTimer) clearInterval(scanTimer);
+  scanTimer=setInterval(scanStep, 40);
+  setScanUI();
+}
+function stopScan(){
+  state.scanning=false;
+  if(scanTimer){ clearInterval(scanTimer); scanTimer=null; }
+  setScanUI();
+}
+function toggleScan(){ state.scanning? stopScan() : startScan(); }
+function scanStep(){
+  var now=performance.now(), dt=(now-state.lastTick)/1000; state.lastTick=now;
+  state.scanAcc += state.speed*dt;
+  var steps=Math.floor(state.scanAcc);
+  if(steps<1) return;
+  state.scanAcc-=steps;
+  var total=displaySeq().length;
+  var next=state.sel+steps;
+  if(next>total){ selectPair(total,"auto"); stopScan(); return; }
+  selectPair(next,"auto");
+}
+
+/* ---------------- motif in helix ---------------- */
+function applyMotif(scroll){
+  var m=($("motifInputScanner").value||"").toUpperCase().replace(/\s/g,"");
+  state.motif=m; state.motifSet={}; state.motifHits=[];
+  if(m && displaySeq().length){
+    state.motifHits=findMotif(displaySeq(), m, false);
+    state.motifHits.forEach(function(p){ for(var k=0;k<m.length;k++) state.motifSet[p+k]=true; });
+  }
+  $("motifCount").textContent = m ? (state.motifHits.length? fmt(state.motifHits.length)+" match(es) — highlighted in the helix" : "No matches in this sequence") : "";
+  $("motifPrev").disabled=$("motifNext").disabled=!state.motifHits.length;
+  renderHelix(); updateDetails();
+}
+function motifJump(dir){
+  if(!state.motifHits.length) return;
+  var target=null, i;
+  if(dir>0){ for(i=0;i<state.motifHits.length;i++){ if(state.motifHits[i]>state.sel){ target=state.motifHits[i]; break; } } if(target===null) target=state.motifHits[0]; }
+  else { for(i=state.motifHits.length-1;i>=0;i--){ if(state.motifHits[i]<state.sel){ target=state.motifHits[i]; break; } } if(target===null) target=state.motifHits[state.motifHits.length-1]; }
+  selectPair(target,"center");
+}
+
+/* ---------------- PNG snapshot ---------------- */
+function downloadHelixPNG(){
+  var seq=displaySeq(); if(!seq.length) return;
+  var pos=state.sel, half=22;
+  var from=Math.max(1,pos-half), to=Math.min(seq.length,pos+half), n=to-from+1;
+  var W=720, rowPx=30, head=92, foot=54, H=head+n*rowPx+foot;
+  var cv=document.createElement("canvas"); cv.width=W*2; cv.height=H*2;
+  var ctx=cv.getContext("2d"); ctx.scale(2,2);
+  var dark=document.documentElement.getAttribute("data-theme")!=="light";
+  ctx.fillStyle=dark? "#0a1017" : "#ffffff"; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle=dark? "#e8f0f7" : "#12222f";
+  ctx.font="800 21px system-ui, sans-serif"; ctx.fillText("DNA VIEWER — Double Helix", 28, 36);
+  ctx.font="13px system-ui, sans-serif"; ctx.fillStyle=dark? "#8fa3b5" : "#54687a";
+  ctx.fillText("File: "+state.fileName+"  ·  "+fmt(seq.length)+" bp  ·  pairs "+from+"–"+to+"  ·  selected pair "+pos, 28, 60);
+  var cx=W/2+30, amp=105, ts=24;
+  for(var p=from;p<=to;p++){
+    var y=head+(p-from)*rowPx+rowPx/2;
+    var th=(p-1)*(2*Math.PI/10.5), s=Math.sin(th), d=Math.cos(th);
+    var x1=cx+s*amp, x2=cx-s*amp, b1=seq[p-1], b2=complementBase(b1);
+    ctx.fillStyle=dark? "#5f7488" : "#8496a6"; ctx.font="11px ui-monospace, monospace"; ctx.textAlign="right";
+    ctx.fillText(String(p), 78, y+4); ctx.textAlign="left";
+    if(p===1||Math.floor((p-2)/10.5)!==Math.floor((p-1)/10.5)){
+      ctx.fillStyle="#4aa3e8"; ctx.font="700 11px system-ui, sans-serif";
+      ctx.fillText("Turn "+(Math.floor((p-1)/10.5)+1), 88, y+4);
+    }
+    ctx.strokeStyle=dark? "#2a4258" : "#b9cbd9"; ctx.setLineDash([3,3]);
+    ctx.beginPath(); ctx.moveTo(Math.min(x1,x2),y); ctx.lineTo(Math.max(x1,x2),y); ctx.stroke(); ctx.setLineDash([]);
+    [[x1,b1,d<0],[x2,b2,d>=0]].forEach(function(t){
+      ctx.globalAlpha=t[2]?0.55:1;
+      ctx.fillStyle=baseColor(t[1]);
+      ctx.beginPath();
+      if(ctx.roundRect) ctx.roundRect(t[0]-ts/2,y-ts/2,ts,ts,6); else ctx.rect(t[0]-ts/2,y-ts/2,ts,ts);
+      ctx.fill(); ctx.globalAlpha=1;
+      ctx.fillStyle="#fff"; ctx.font="800 14px ui-monospace, monospace"; ctx.textAlign="center";
+      ctx.fillText(t[1], t[0], y+5); ctx.textAlign="left";
+    });
+    if(p===pos){
+      ctx.strokeStyle="#ffd84d"; ctx.lineWidth=2.5;
+      ctx.strokeRect(84, y-rowPx/2+2, W-110, rowPx-4); ctx.lineWidth=1;
+    }
+  }
+  var b1=seq[pos-1], b2=complementBase(b1);
+  ctx.fillStyle=dark? "#e8f0f7" : "#12222f"; ctx.font="700 14px system-ui, sans-serif";
+  var bonds=("ACGT".indexOf(b1)>-1)? (("AT".indexOf(b1)>-1)? "2 hydrogen bonds (weaker)" : "3 hydrogen bonds (stronger)") : "ambiguous base";
+  ctx.fillText("Pair "+pos+": "+baseName(b1)+" pairs with "+baseName(b2)+" — "+bonds, 28, H-22);
+  cv.toBlob(function(blob){ if(blob) downloadFile("dna-helix-pair-"+pos+".png", blob); },"image/png");
+}
+</script>
+
+<script>
+"use strict";
+/* ============================================================
+   Tool views (Statistics, GC, Translation, ORF, Restriction,
+   Motif, Comparison, Codon, Export, Tests)
+   ============================================================ */
+function buildTabs(){
+  $("tabbar").innerHTML=TABS.map(function(t){
+    return '<button type="button" class="tabbtn'+(state.view===t.id?" active":"")+'" data-tab="'+t.id+'">'+t.label+"</button>";
+  }).join("");
+  Array.prototype.forEach.call(document.querySelectorAll("[data-tab]"),function(b){
+    b.addEventListener("click",function(){ showView(b.getAttribute("data-tab")); });
+  });
+}
+function showView(id){
+  state.view=id;
+  Array.prototype.forEach.call(document.querySelectorAll(".view"),function(v){ v.classList.toggle("active", v.id==="view-"+id); });
+  Array.prototype.forEach.call(document.querySelectorAll("[data-tab]"),function(b){ b.classList.toggle("active", b.getAttribute("data-tab")===id); });
+  if(id==="scanner"){ renderHelix(true); updateDetails(); }
+  if(id==="stats") renderStats();
+  if(id==="gc") renderGC();
+  if(id==="translation") renderTranslation();
+  if(id==="orf") renderORFs();
+  if(id==="restriction") renderRestriction();
+  if(id==="codon") renderCodon();
+}
+function statCard(k,v,d,barColor,barPct){
+  return '<div class="stat-card"><div class="k">'+k+'</div><div class="v">'+v+'</div><div class="d">'+d+'</div>'
+    +(barColor?'<div class="bar"><i style="width:'+Math.min(100,barPct)+'%;background:'+barColor+'"></i></div>':"")+'</div>';
+}
+function buildToolViews(){
+  var codeOptions=Object.keys(GENETIC_CODES).map(function(k){ return '<option value="'+k+'">'+esc(GENETIC_CODES[k].name)+'</option>'; }).join("");
+  var enzymeChecks=ENZYMES.map(function(e){ return '<label class="chk"><input type="checkbox" class="enz-chk" value="'+e.name+'" checked> '+e.name+' <span class="mono" style="color:var(--muted)">'+e.site+'</span></label>'; }).join("");
+  $("toolViews").innerHTML =
+  '<section class="view scrollable" id="view-stats"><div class="wrap">'
+  + '<h1>Sequence Statistics</h1><p class="sub">Base composition, GC/AT balance and dinucleotide frequencies for the loaded sequence (forward strand, as loaded).</p>'
+  + '<div id="statsBody"></div></div></section>'
+
+  + '<section class="view scrollable" id="view-gc"><div class="wrap">'
+  + '<h1>GC Content Analysis</h1><p class="sub">Sliding-window GC percentage across the sequence. Hover the chart points to read each window. The mini version of this chart also sits beside the helix on the Scanner tab.</p>'
+  + '<div class="card"><div class="row">'
+  + '<label class="f" style="margin:0">Window size (bp) <input type="number" id="gcWin" value="100" min="5" max="5000" style="width:90px"></label>'
+  + '<label class="f" style="margin:0">Step size (bp) <input type="number" id="gcStep" value="20" min="1" max="1000" style="width:90px"></label>'
+  + '<button class="btn" id="gcRun" type="button">Recalculate</button>'
+  + '<button class="btn secondary" id="gcSvgDl" type="button">Download chart (SVG)</button></div>'
+  + '<div id="gcSummary" style="margin-top:12px"></div><div id="gcChart" style="margin-top:8px"></div>'
+  + '<p style="color:var(--muted);font-size:13px">Windows above 60% GC are GC-rich; below 40% they are AT-rich, relative to typical bacterial and plasmid sequences.</p></div></div></section>'
+
+  + '<section class="view scrollable" id="view-translation"><div class="wrap">'
+  + '<h1>Translation &amp; Reverse Complement</h1><p class="sub">Six-frame translation with a selectable genetic code, plus the reverse complement with full IUPAC ambiguity support.</p>'
+  + '<div class="card"><div class="row"><label class="f" style="margin:0">Genetic code <select id="codeSelect">'+codeOptions+'</select></label>'
+  + '<button class="btn secondary" id="dlTransBtn" type="button">Download translation</button></div>'
+  + '<div id="framesBody" style="margin-top:14px"></div></div>'
+  + '<div class="card"><h2>Reverse complement</h2>'
+  + '<div class="grid cols2"><div><h3>Original (5′ → 3′)</h3><div class="seqtext" id="origText"></div></div>'
+  + '<div><h3>Reverse complement (5′ → 3′)</h3><div class="seqtext" id="rcText"></div></div></div>'
+  + '<div class="row" style="margin-top:12px"><button class="btn secondary" id="copyRcBtn" type="button">Copy reverse complement</button>'
+  + '<button class="btn secondary" id="dlRcBtn" type="button">Download as FASTA</button>'
+  + '<button class="btn secondary" id="loadRcBtn" type="button">Load reverse complement as sequence</button>'
+  + '<span id="rcMsg" style="font-size:13px;color:var(--good)"></span></div></div></div></section>'
+
+  + '<section class="view scrollable" id="view-orf"><div class="wrap">'
+  + '<h1>ORF Finder</h1><p class="sub">Open reading frames in all six reading frames: an ATG start codon followed in frame by a stop codon (TAA, TAG, TGA).</p>'
+  + '<div class="note"><strong>Predicted, not proven.</strong> These are computational predictions. An ORF is not necessarily a functional gene: real genes also need promoter context, a ribosome binding site, and experimental evidence.</div>'
+  + '<div class="card"><div class="row"><label class="f" style="margin:0">Minimum ORF length (nt) <input type="number" id="orfMin" value="90" min="30" step="30" style="width:90px"></label>'
+  + '<button class="btn" id="orfRun" type="button">Find ORFs</button><span id="orfCount" style="color:var(--muted);font-size:13.5px"></span></div>'
+  + '<div class="tablewrap" style="margin-top:12px"><table><thead><tr><th>#</th><th>Start</th><th>End</th><th>Strand</th><th>Frame</th><th>Length (nt)</th><th>Length (aa)</th><th>Stop</th><th>Protein (first 40 aa)</th></tr></thead><tbody id="orfTable"></tbody></table></div>'
+  + '<p style="color:var(--muted);font-size:13px">Select an ORF row to jump to it in the Helix Scanner.</p>'
+  + '<div class="row"><button class="btn secondary" id="dlOrfBtn" type="button">Download ORFs (CSV)</button>'
+  + '<button class="btn secondary" id="copyProtBtn" type="button">Copy selected protein</button><span id="orfMsg" style="font-size:13px;color:var(--good)"></span></div>'
+  + '</div></div></section>'
+
+  + '<section class="view scrollable" id="view-restriction"><div class="wrap">'
+  + '<h1>Restriction Map</h1><p class="sub">Recognition sites and cleavage positions for common enzymes, searched on both strands, with fragment sizes for a digest.</p>'
+  + '<div class="card"><h3>Enzymes</h3><div>'+enzymeChecks+'</div>'
+  + '<div class="row" style="margin-top:10px"><label class="chk"><input type="checkbox" id="circToggle"> Treat DNA as circular</label>'
+  + '<button class="btn" id="enzRun" type="button">Analyze</button>'
+  + '<button class="btn secondary" id="dlEnzBtn" type="button">Download sites (CSV)</button></div>'
+  + '<div id="enzMap" style="margin-top:14px"></div>'
+  + '<div class="grid cols2" style="margin-top:6px"><div><h3>Cut sites</h3><div class="tablewrap"><table><thead><tr><th>Enzyme</th><th>Site</th><th>Position</th><th>Strand</th><th>Cut after</th></tr></thead><tbody id="enzTable"></tbody></table></div></div>'
+  + '<div><h3>Digest fragments</h3><div id="fragList"></div></div></div></div></div></section>'
+
+  + '<section class="view scrollable" id="view-motif"><div class="wrap">'
+  + '<h1>Motif Search</h1><p class="sub">Search one motif per line. IUPAC ambiguity codes are supported (R = A/G, Y = C/T, N = any base). Overlapping matches are reported, and matches are also highlighted inside the Helix Scanner.</p>'
+  + '<div class="card"><div class="field"><label class="f" for="motifInput">Motifs</label>'
+  + '<textarea class="seqin" id="motifInput" style="min-height:84px" spellcheck="false">TATAAA\nGAATTC</textarea></div>'
+  + '<div class="row"><button class="btn" id="motifRun" type="button">Search motifs</button>'
+  + '<label class="chk"><input type="checkbox" id="motifCirc"> Circular DNA (wrap-around matches)</label>'
+  + '<button class="btn secondary" id="dlMotifBtn" type="button">Download results (CSV)</button></div>'
+  + '<div id="motifSummary" style="margin-top:12px"></div>'
+  + '<div class="tablewrap"><table><thead><tr><th>Motif</th><th>Position</th><th>Matched sequence</th><th></th></tr></thead><tbody id="motifTable"></tbody></table></div></div></div></section>'
+
+  + '<section class="view scrollable" id="view-compare"><div class="wrap">'
+  + '<h1>Sequence Comparison</h1><p class="sub">Position-by-position comparison of the loaded sequence (Sequence A) against a second sequence. This is a direct overlay, not a gapped alignment.</p>'
+  + '<div class="card"><div class="field"><label class="f" for="seqB">Sequence B (raw or FASTA)</label>'
+  + '<textarea class="seqin" id="seqB" spellcheck="false" placeholder="Paste the second sequence…"></textarea></div>'
+  + '<div class="row"><button class="btn" id="cmpRun" type="button">Compare</button></div>'
+  + '<div id="cmpResult" style="margin-top:14px"></div></div></div></section>'
+
+  + '<section class="view scrollable" id="view-codon"><div class="wrap">'
+  + '<h1>Codon Usage &amp; Composition</h1><p class="sub">Codon frequencies and relative synonymous codon usage (RSCU) for the chosen forward reading frame, plus dinucleotide composition.</p>'
+  + '<div class="card"><div class="row"><label class="f" style="margin:0">Reading frame <select id="codonFrame"><option value="0">Frame +1</option><option value="1">Frame +2</option><option value="2">Frame +3</option></select></label>'
+  + '<button class="btn" id="codonRun" type="button">Recalculate</button>'
+  + '<button class="btn secondary" id="dlCodonBtn" type="button">Download codon table (CSV)</button></div>'
+  + '<div id="codonBody" style="margin-top:14px"></div></div></div></section>'
+
+  + '<section class="view scrollable" id="view-export"><div class="wrap">'
+  + '<h1>Export Results</h1><p class="sub">Download the current sequence and any analysis results as files. Run an analysis first so its export has content. The Helix Scanner panel also has one-click FASTA, statistics CSV and PNG snapshot buttons.</p>'
+  + '<div class="card"><div class="grid cols2" id="exportBtns"></div>'
+  + '<p style="color:var(--muted);font-size:13px" id="exportMsg"></p></div>'
+  + '<div class="card"><h2>Using this page on GitHub Pages</h2><p style="color:var(--muted);font-size:14px;margin:0">This app is one self-contained HTML file with no external dependencies. Save it as <span class="mono">index.html</span>, push it to a GitHub repository, and enable Pages (Settings → Pages → deploy from branch) — it works exactly as it does here, including offline after the first load.</p></div></div></section>'
+
+  + '<section class="view scrollable" id="view-tests"><div class="wrap">'
+  + '<h1>Tests &amp; Information</h1><p class="sub">Built-in validation tests for the biological algorithms, plus known limitations.</p>'
+  + '<div class="card"><h2>Algorithm self-tests</h2><p style="color:var(--muted)">These tests run the real analysis functions on sequences with known answers.</p>'
+  + '<button class="btn" id="testRun" type="button">Run tests</button><div id="testResults" style="margin-top:12px"></div></div>'
+  + '<div class="card"><h2>Limitations</h2><ul style="margin:0;padding-left:20px;color:var(--muted);font-size:14px">'
+  + '<li>Sequence comparison is a position-by-position overlay, not a gapped alignment (no BLAST or Needleman–Wunsch).</li>'
+  + '<li>ORFs require an ATG start in this implementation; alternative start codons (GTG, TTG) used by some bacteria are not searched.</li>'
+  + '<li>The helix view is virtualized: only the pairs on screen are drawn, so 20,000+ bp sequences stay smooth.</li>'
+  + '<li>Groove labels and the twist in the helix view follow ideal B-DNA geometry (10.5 bp per turn); real DNA bends and varies locally.</li>'
+  + '<li>Restriction cut positions follow each enzyme\'s standard top-strand cleavage offset; isoschizomers are not listed separately.</li>'
+  + '<li>Translation of codons containing ambiguous bases returns X for that residue.</li></ul></div></div></section>';
+}
+/* ---------- statistics ---------- */
+function renderStats(){
+  var el=$("statsBody"); if(!el) return;
+  var seq=state.seq;
+  if(!seq){ el.innerHTML='<div class="card">No sequence loaded yet.</div>'; return; }
+  var c=baseCounts(seq), len=seq.length, gc=(c.G+c.C)/len*100, at=(c.A+c.T)/len*100;
+  var cards='<div class="grid cols4">'
+    + statCard("Total length", fmt(len)+" bp", "bases in current record")
+    + statCard("GC content", pct(gc), "G + C fraction", "var(--accent)", gc)
+    + statCard("AT content", pct(at), "A + T fraction", "var(--t)", at)
+    + statCard("GC / AT ratio", at>0?((c.G+c.C)/(c.A+c.T)).toFixed(3):"—", "ambiguous bases: "+fmt(c.other))
+    + "</div>";
+  var rows=["A","T","G","C"].map(function(b){
+    var col={A:"var(--a)",T:"var(--t)",G:"var(--g)",C:"var(--c)"}[b];
+    return statCard("Base "+b, fmt(c[b]), pct(c[b]/len*100)+" of sequence", col, c[b]/len*100);
+  }).join("");
+  var total=len, acc=0, segs="";
+  [["A",c.A,"#22b573"],["T",c.T,"#e5484d"],["G",c.G,"#f08c1e"],["C",c.C,"#2f7fe0"],["Other",c.other,"#8b98a5"]].forEach(function(s){
+    if(!s[1]) return;
+    var frac=s[1]/total, a0=acc*2*Math.PI-Math.PI/2; acc+=frac; var a1=acc*2*Math.PI-Math.PI/2;
+    var large=frac>0.5?1:0, r=52, cx=70, cy=70;
+    segs+='<path d="M'+cx+','+cy+' L'+(cx+r*Math.cos(a0)).toFixed(1)+','+(cy+r*Math.sin(a0)).toFixed(1)+' A'+r+','+r+' 0 '+large+' 1 '+(cx+r*Math.cos(a1)).toFixed(1)+','+(cy+r*Math.sin(a1)).toFixed(1)+' Z" fill="'+s[2]+'"><title>'+s[0]+": "+fmt(s[1])+" ("+pct(frac*100)+")</title></path>";
+  });
+  var donut='<svg width="140" height="140" viewBox="0 0 140 140" role="img" aria-label="Nucleotide composition chart">'+segs+'<circle cx="70" cy="70" r="26" fill="var(--panel)"></circle><text x="70" y="75" text-anchor="middle" font-size="12" fill="var(--muted)">'+fmt(len)+' bp</text></svg>';
+  var di=dinucleotideFreq(seq);
+  var diRows=Object.keys(di.counts).sort(function(a,b){return di.counts[b]-di.counts[a];}).slice(0,10).map(function(d){
+    return "<tr><td data-l='Dinucleotide' class='mono'>"+d+"</td><td data-l='Count'>"+fmt(di.counts[d])+"</td><td data-l='Frequency'>"+pct(di.counts[d]/di.total*100)+"</td></tr>";
+  }).join("");
+  el.innerHTML=cards
+    +'<div class="grid cols4">'+rows+'</div>'
+    +'<div class="grid cols2"><div class="card"><h2>Composition</h2><div class="row" style="align-items:flex-start;gap:22px">'+donut+'<div><p style="margin:4px 0"><span class="pill">A '+pct(c.A/len*100)+'</span> <span class="pill">T '+pct(c.T/len*100)+'</span></p><p style="margin:4px 0"><span class="pill">G '+pct(c.G/len*100)+'</span> <span class="pill">C '+pct(c.C/len*100)+'</span></p><p style="margin:4px 0"><span class="pill">Ambiguous '+fmt(c.other)+' ('+pct(c.other/len*100)+')</span></p><p style="color:var(--muted);font-size:13px">Percentages are of total length, including ambiguous bases.</p></div></div></div>'
+    +'<div class="card"><h2>Top dinucleotides</h2><div class="tablewrap"><table><thead><tr><th>Dinucleotide</th><th>Count</th><th>Frequency</th></tr></thead><tbody>'+diRows+'</tbody></table></div></div></div>';
+}
+/* ---------- GC chart ---------- */
+function renderGC(){
+  var chart=$("gcChart"), sum=$("gcSummary"); if(!chart) return;
+  var seq=state.seq;
+  if(!seq){ chart.innerHTML='<p style="color:var(--muted)">No sequence loaded yet.</p>'; sum.innerHTML=""; state.lastGC=[]; return; }
+  var win=Math.max(5, parseInt($("gcWin").value,10)||100), step=Math.max(1, parseInt($("gcStep").value,10)||20);
+  var pts=gcWindows(seq, win, step); state.lastGC=pts;
+  var mean=gcPercent(seq);
+  var maxP=pts.reduce(function(m,p){return p.gc>m.gc?p:m;},pts[0]), minP=pts.reduce(function(m,p){return p.gc<m.gc?p:m;},pts[0]);
+  sum.innerHTML='<span class="pill">Overall GC '+pct(mean)+'</span> <span class="pill">Windows: '+pts.length+'</span> <span class="pill">Highest: '+pct(maxP.gc)+' at '+fmt(maxP.start)+'–'+fmt(maxP.end)+'</span> <span class="pill">Lowest: '+pct(minP.gc)+' at '+fmt(minP.start)+'–'+fmt(minP.end)+'</span>';
+  var W=860,H=240,pl=44,pr=10,pt=12,pb=28, iw=W-pl-pr, ih=H-pt-pb;
+  var maxX=Math.max(seq.length, win);
+  function X(x){ return pl + (x-1)/Math.max(1,maxX-1)*iw; }
+  function Y(gv){ return pt + (100-gv)/100*ih; }
+  var path=pts.map(function(p,i){ return (i===0?"M":"L")+X(p.mid).toFixed(1)+","+Y(p.gc).toFixed(1); }).join(" ");
+  var dots=pts.map(function(p){ return '<circle cx="'+X(p.mid).toFixed(1)+'" cy="'+Y(p.gc).toFixed(1)+'" r="3" fill="var(--accent)"><title>Position '+fmt(p.start)+'–'+fmt(p.end)+': GC '+pct(p.gc)+'</title></circle>'; }).join("");
+  var grid="";
+  [0,25,50,75,100].forEach(function(gv){ grid+='<line x1="'+pl+'" y1="'+Y(gv)+'" x2="'+(W-pr)+'" y2="'+Y(gv)+'" stroke="var(--line)"/><text x="'+(pl-6)+'" y="'+(Y(gv)+4)+'" text-anchor="end" font-size="11" fill="var(--muted)">'+gv+'%</text>'; });
+  chart.innerHTML='<svg id="gcSvg" viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto" role="img" aria-label="GC content chart">'+grid
+    +'<line x1="'+pl+'" y1="'+Y(60)+'" x2="'+(W-pr)+'" y2="'+Y(60)+'" stroke="#f08c1e" stroke-dasharray="4 4"/><line x1="'+pl+'" y1="'+Y(40)+'" x2="'+(W-pr)+'" y2="'+Y(40)+'" stroke="#e5484d" stroke-dasharray="4 4"/>'
+    +'<line x1="'+pl+'" y1="'+Y(mean)+'" x2="'+(W-pr)+'" y2="'+Y(mean)+'" stroke="var(--accent2)" stroke-width="1.5"/>'
+    +'<path d="'+path+'" fill="none" stroke="var(--accent)" stroke-width="2"/>'+dots
+    +'<text x="'+(pl+iw/2)+'" y="'+(H-4)+'" text-anchor="middle" font-size="11" fill="var(--muted)">Position (bp) — window '+win+' bp, step '+step+' bp</text></svg>';
+}
+/* ---------- translation ---------- */
+function renderTranslation(){
+  var body=$("framesBody"); if(!body) return;
+  var seq=state.seq;
+  if(!seq){ body.innerHTML='<p style="color:var(--muted)">No sequence loaded yet.</p>'; $("origText").textContent=""; $("rcText").textContent=""; return; }
+  var shown = seq.length>6000 ? seq.slice(0,6000) : seq;
+  var truncNote = seq.length>6000 ? '<p style="color:var(--muted);font-size:13px">Showing the first 6,000 bp so the page stays responsive — the downloadable translation covers the full sequence.</p>' : "";
+  var table=codonTableFor(state.code);
+  var rc=reverseComplement(shown);
+  var frames=[
+    {label:"Frame +1", s:shown, off:0, strand:"+"},{label:"Frame +2", s:shown, off:1, strand:"+"},{label:"Frame +3", s:shown, off:2, strand:"+"},
+    {label:"Frame −1 (reverse strand)", s:rc, off:0, strand:"-"},{label:"Frame −2 (reverse strand)", s:rc, off:1, strand:"-"},{label:"Frame −3 (reverse strand)", s:rc, off:2, strand:"-"}
+  ];
+  body.innerHTML=truncNote+frames.map(function(f){
+    var aa=translateFrame(f.s, f.off, table);
+    var html=aa.split("").map(function(ch){
+      var cls= ch==="M"?"aa start":(ch==="*"?"aa stop":"aa");
+      return '<span class="'+cls+'">'+ch+'</span>';
+    }).join("");
+    return '<div class="frameblock"><div class="fh">'+f.label+' <span style="color:var(--muted);font-weight:400">· nt '+(f.off+1)+'–'+(f.off+aa.length*3)+' · '+aa.length+' residues · M highlighted, * = stop</span></div><div class="aaseq">'+html+'</div></div>';
+  }).join("");
+  $("origText").textContent=shown;
+  $("rcText").textContent=reverseComplement(shown);
+}
+function translationText(){
+  var table=codonTableFor(state.code), rc=reverseComplement(state.seq), out="";
+  [["+1",state.seq,0],["+2",state.seq,1],["+3",state.seq,2],["-1",rc,0],["-2",rc,1],["-3",rc,2]].forEach(function(f){
+    out+="Frame "+f[0]+"\n"+translateFrame(f[1],f[2],table)+"\n\n";
+  });
+  return out;
+}
+/* ---------- ORF ---------- */
+var selectedORF=null;
+function renderORFs(){
+  var tb=$("orfTable"); if(!tb) return;
+  if(!state.seq){ tb.innerHTML='<tr><td colspan="9">No sequence loaded yet.</td></tr>'; $("orfCount").textContent=""; state.lastORFs=[]; return; }
+  var minNt=Math.max(30, parseInt($("orfMin").value,10)||90);
+  var orfs=findORFs(state.seq, minNt, state.code);
+  state.lastORFs=orfs; selectedORF=null;
+  $("orfCount").textContent=orfs.length+" predicted ORF(s) found (minimum "+minNt+" nt).";
+  tb.innerHTML= orfs.length? orfs.map(function(o,i){
+    return '<tr class="clickable" data-orf="'+i+'"><td data-l="#">'+(i+1)+'</td><td data-l="Start">'+fmt(o.start)+'</td><td data-l="End">'+fmt(o.end)+'</td><td data-l="Strand">'+o.strand+'</td><td data-l="Frame">'+o.strand+o.frame+'</td><td data-l="Length nt">'+fmt(o.lengthNt)+'</td><td data-l="Length aa">'+o.lengthAa+'</td><td data-l="Stop" class="mono">'+o.stopCodon+'</td><td data-l="Protein" class="mono">'+esc(o.protein.slice(0,40))+(o.protein.length>40?"…":"")+'</td></tr>';
+  }).join("") : '<tr><td colspan="9">No ORFs of at least '+minNt+' nt found. Try a lower minimum length.</td></tr>';
+  Array.prototype.forEach.call(tb.querySelectorAll("[data-orf]"),function(tr){
+    tr.addEventListener("click",function(){
+      var o=orfs[parseInt(tr.getAttribute("data-orf"),10)];
+      selectedORF=o;
+      $("orfMsg").textContent="ORF "+o.start+"–"+o.end+" — opening in the Helix Scanner.";
+      state.rc = (o.strand==="-");
+      $("rcToggle").checked=state.rc;
+      applyMotif(false);
+      showView("scanner");
+      selectPair(o.start,"center");
+    });
+  });
+}
+/* ---------- restriction ---------- */
+function renderRestriction(){
+  var tb=$("enzTable"), map=$("enzMap"), frag=$("fragList"); if(!tb) return;
+  if(!state.seq){ tb.innerHTML='<tr><td colspan="5">No sequence loaded yet.</td></tr>'; map.innerHTML=""; frag.innerHTML=""; state.lastSites=[]; return; }
+  var names=Array.prototype.map.call(document.querySelectorAll(".enz-chk:checked"),function(c){return c.value;});
+  var circular=$("circToggle").checked;
+  var sites=findRestrictionSites(state.seq, names, circular);
+  state.lastSites=sites;
+  tb.innerHTML= sites.length? sites.map(function(s){
+    return "<tr><td data-l='Enzyme'>"+s.enzyme+"</td><td data-l='Site' class='mono'>"+s.site+"</td><td data-l='Position'>"+fmt(s.pos)+"</td><td data-l='Strand'>"+s.strand+"</td><td data-l='Cut after'>"+fmt(s.cutPos)+"</td></tr>";
+  }).join("") : '<tr><td colspan="5">No sites for the selected enzymes in this sequence.</td></tr>';
+  var frags=restrictionFragments(state.seq.length, sites, circular);
+  frag.innerHTML='<p style="margin-top:0">'+(circular?"Circular":"Linear")+' digest with '+sites.length+' cut(s) → <strong>'+frags.length+' fragment(s)</strong></p>'
+    + frags.map(function(f,i){ return '<span class="pill">Fragment '+(i+1)+': '+fmt(f)+' bp</span>'; }).join("");
+  var L=state.seq.length, W=880, midY=54;
+  if(circular){
+    var cx=W/2, cy=110, r=72, marks=sites.map(function(s){
+      var a=(s.pos-1)/L*2*Math.PI-Math.PI/2;
+      return '<line x1="'+(cx+r*Math.cos(a)).toFixed(1)+'" y1="'+(cy+r*Math.sin(a)).toFixed(1)+'" x2="'+(cx+(r+13)*Math.cos(a)).toFixed(1)+'" y2="'+(cy+(r+13)*Math.sin(a)).toFixed(1)+'" stroke="var(--accent2)" stroke-width="2"/><text x="'+(cx+(r+30)*Math.cos(a)).toFixed(1)+'" y="'+(cy+(r+30)*Math.sin(a)+3).toFixed(1)+'" text-anchor="middle" font-size="10.5" fill="var(--ink)">'+s.enzyme+'</text>';
+    }).join("");
+    map.innerHTML='<svg viewBox="0 0 '+W+' 230" style="width:100%;height:auto" role="img" aria-label="Circular restriction map"><circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="var(--accent)" stroke-width="3"/>'+marks+'<text x="'+cx+'" y="'+(cy+4)+'" text-anchor="middle" font-size="12" fill="var(--muted)">'+fmt(L)+' bp · circular</text></svg>';
+  } else {
+    var ticks=sites.map(function(s,idx){
+      var x=40+(s.pos-1)/Math.max(1,L-1)*(W-80);
+      var ly = idx%2===0 ? midY-24 : midY-42;
+      var py = idx%2===0 ? midY+32 : midY+48;
+      return '<line x1="'+x.toFixed(1)+'" y1="'+(midY-16)+'" x2="'+x.toFixed(1)+'" y2="'+(midY+16)+'" stroke="var(--accent2)" stroke-width="2"/><text x="'+x.toFixed(1)+'" y="'+ly+'" text-anchor="middle" font-size="10.5" fill="var(--ink)">'+s.enzyme+'</text><text x="'+x.toFixed(1)+'" y="'+py+'" text-anchor="middle" font-size="10" fill="var(--muted)">'+fmt(s.pos)+'</text>';
+    }).join("");
+    map.innerHTML='<svg viewBox="0 0 '+W+' 110" style="width:100%;height:auto" role="img" aria-label="Linear restriction map"><line x1="40" y1="'+midY+'" x2="'+(W-40)+'" y2="'+midY+'" stroke="var(--accent)" stroke-width="3"/>'+ticks+'<text x="40" y="'+(midY+48)+'" font-size="10" fill="var(--muted)">1</text><text x="'+(W-40)+'" y="'+(midY+48)+'" text-anchor="end" font-size="10" fill="var(--muted)">'+fmt(L)+'</text></svg>';
+  }
+}
+/* ---------- motif tab ---------- */
+function renderMotifTab(){
+  var tb=$("motifTable"), sum=$("motifSummary"); if(!tb) return;
+  var motifs=$("motifInput").value.split(/\r?\n/).map(function(m){return m.trim().toUpperCase();}).filter(Boolean);
+  var circular=$("motifCirc").checked;
+  state.lastMotifs=[];
+  if(!state.seq){ tb.innerHTML='<tr><td colspan="4">No sequence loaded yet.</td></tr>'; sum.innerHTML=""; return; }
+  if(!motifs.length){ tb.innerHTML='<tr><td colspan="4">Enter at least one motif.</td></tr>'; sum.innerHTML=""; return; }
+  var rows="";
+  motifs.forEach(function(m){
+    findMotif(state.seq, m, circular).forEach(function(p){
+      var matched=state.seq.slice(p-1,p-1+m.length);
+      if(matched.length<m.length) matched=(state.seq+state.seq).slice(p-1,p-1+m.length);
+      state.lastMotifs.push({motif:m, pos:p, matched:matched});
+      rows+="<tr><td data-l='Motif' class='mono'>"+esc(m)+"</td><td data-l='Position'>"+fmt(p)+"</td><td data-l='Matched' class='mono'>"+esc(matched)+"</td><td><button type='button' class='btn secondary small' data-jump='"+p+"' data-m='"+esc(m)+"'>View in helix</button></td></tr>";
+    });
+  });
+  var counts={}; state.lastMotifs.forEach(function(h){ counts[h.motif]=(counts[h.motif]||0)+1; });
+  sum.innerHTML=Object.keys(counts).map(function(m){ return '<span class="pill mono">'+esc(m)+': '+counts[m]+' match(es)</span>'; }).join("") || '<span class="pill">No matches</span>';
+  tb.innerHTML= rows || '<tr><td colspan="4">No matches found.</td></tr>';
+  Array.prototype.forEach.call(tb.querySelectorAll("[data-jump]"),function(b){
+    b.addEventListener("click",function(){
+      $("motifInputScanner").value=b.getAttribute("data-m");
+      state.rc=false; $("rcToggle").checked=false;
+      applyMotif(false);
+      showView("scanner");
+      selectPair(parseInt(b.getAttribute("data-jump"),10),"center");
+    });
+  });
+}
+/* ---------- compare ---------- */
+function renderCompare(){
+  var out=$("cmpResult"); if(!out) return;
+  var raw=$("seqB").value, bSeq="";
+  if(raw.trim().charAt(0)===">"){ var recs=parseFASTA(raw); bSeq=recs.length?recs[0].seq:""; }
+  else bSeq=cleanSequence(raw);
+  var a=state.seq;
+  if(!a){ out.innerHTML='<p style="color:var(--bad)">Load Sequence A on the Scanner tab first.</p>'; return; }
+  if(!bSeq){ out.innerHTML='<p style="color:var(--bad)">Paste Sequence B above.</p>'; return; }
+  var n=Math.min(a.length,bSeq.length), matches=0, i;
+  for(i=0;i<n;i++) if(a[i]===bSeq[i]) matches++;
+  var ident=n? matches/n*100:0;
+  var blocks="", shown=Math.min(n,6000);
+  for(var s=0;s<shown;s+=60){
+    var aLine="", bLine="";
+    for(var j=s;j<Math.min(shown,s+60);j++){
+      if(a[j]===bSeq[j]){ aLine+='<span class="diff-ok">'+a[j]+'</span>'; bLine+='<span class="diff-ok">'+bSeq[j]+'</span>'; }
+      else { aLine+='<span class="diff-mis">'+a[j]+'</span>'; bLine+='<span class="diff-mis">'+bSeq[j]+'</span>'; }
+    }
+    blocks+='<div class="seqtext" style="margin-bottom:8px"><strong>'+(s+1)+'</strong> A '+aLine+'<br><span style="visibility:hidden"><strong>'+(s+1)+'</strong></span> B '+bLine+'</div>';
+  }
+  out.innerHTML='<div class="row"><span class="pill">Compared length: '+fmt(n)+' bp</span><span class="pill">Matches: '+fmt(matches)+'</span><span class="pill">Mismatches: '+fmt(n-matches)+'</span><span class="pill"><strong>Identity: '+pct(ident)+'</strong></span><span class="pill">A length '+fmt(a.length)+' · B length '+fmt(bSeq.length)+'</span></div>'
+    +'<p style="color:var(--muted);font-size:13px">Compared over the shorter length; extra bases in the longer sequence are not scored. Mismatched positions are highlighted.'+(n>shown?' Showing the first 6,000 compared bases.':'')+'</p>'+blocks;
+}
+/* ---------- codon ---------- */
+var lastCodonCSV="";
+function renderCodon(){
+  var el=$("codonBody"); if(!el) return;
+  if(!state.seq){ el.innerHTML='<p style="color:var(--muted)">No sequence loaded yet.</p>'; return; }
+  var frame=parseInt($("codonFrame").value,10)||0;
+  var cu=codonUsage(state.seq, frame), r=rscu(cu.counts);
+  var csv="codon,amino_acid,count,frequency_percent,rscu\n";
+  var rows=Object.keys(AA_CODONS).map(function(aa){
+    return AA_CODONS[aa].map(function(cod){
+      var cnt=cu.counts[cod]||0, f=cu.total? cnt/cu.total*100:0;
+      csv+=cod+","+aa+","+cnt+","+f.toFixed(2)+","+(r[cod]||0).toFixed(3)+"\n";
+      return "<tr><td data-l='Codon' class='mono'>"+cod+"</td><td data-l='Amino acid'>"+aa+"</td><td data-l='Count'>"+cnt+"</td><td data-l='Frequency'>"+f.toFixed(2)+"%</td><td data-l='RSCU'>"+(r[cod]||0).toFixed(2)+"</td><td data-l='' style='min-width:110px'><div class='bar' style='margin:0'><i style='width:"+Math.min(100,(r[cod]||0)/3*100)+"%;background:var(--accent)'></i></div></td></tr>";
+    }).join("");
+  }).join("");
+  lastCodonCSV=csv;
+  var di=dinucleotideFreq(state.seq);
+  var diPills=Object.keys(di.counts).sort().map(function(d){ return '<span class="pill mono">'+d+' '+pct(di.counts[d]/di.total*100)+'</span>'; }).join("");
+  el.innerHTML='<p style="color:var(--muted)">'+fmt(cu.total)+' complete codons counted in frame +'+(frame+1)+'. RSCU = 1.0 means no bias within a synonymous family.</p>'
+    +'<div class="tablewrap"><table><thead><tr><th>Codon</th><th>Amino acid</th><th>Count</th><th>Frequency</th><th>RSCU</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>'
+    +'<h3 style="margin-top:18px">Dinucleotide composition (whole sequence)</h3><div>'+diPills+'</div>';
+}
+/* ---------- export ---------- */
+function statsCSV(){
+  var c=baseCounts(state.seq), len=state.seq.length||1;
+  return "metric,value\nlength_bp,"+state.seq.length+"\nA,"+c.A+"\nT,"+c.T+"\nG,"+c.G+"\nC,"+c.C+"\nambiguous,"+c.other+"\nGC_percent,"+gcPercent(state.seq).toFixed(2)+"\nAT_percent,"+((c.A+c.T)/len*100).toFixed(2)+"\nphysical_length_nm,"+(state.seq.length*0.34).toFixed(1)+"\nhelix_turns,"+(state.seq.length/10.5).toFixed(2)+"\n";
+}
+function orfsCSV(){ return "start,end,strand,frame,length_nt,length_aa,stop_codon,protein\n"+state.lastORFs.map(function(o){ return [o.start,o.end,o.strand,o.frame,o.lengthNt,o.lengthAa,o.stopCodon,o.protein].join(","); }).join("\n")+"\n"; }
+function sitesCSV(){ return "enzyme,site,position,strand,cut_after\n"+state.lastSites.map(function(s){ return [s.enzyme,s.site,s.pos,s.strand,s.cutPos].join(","); }).join("\n")+"\n"; }
+function motifCSV(){ return "motif,position,matched\n"+state.lastMotifs.map(function(h){ return [h.motif,h.pos,h.matched].join(","); }).join("\n")+"\n"; }
+function buildExport(){
+  var el=$("exportBtns"); if(!el) return;
+  var items=[
+    ["Download FASTA (all records)", function(){ if(!state.records.length) return "Load a sequence first."; downloadFile("sequences.fasta", toFASTA(state.records)); return "FASTA downloaded."; }],
+    ["Download statistics (CSV)", function(){ if(!state.seq) return "Load a sequence first."; downloadFile("statistics.csv", statsCSV(), "text/csv"); return "Statistics CSV downloaded."; }],
+    ["Download helix snapshot (PNG)", function(){ if(!state.seq) return "Load a sequence first."; downloadHelixPNG(); return "PNG snapshot downloaded (centered on pair "+state.sel+")."; }],
+    ["Download reverse complement (FASTA)", function(){ if(!state.seq) return "Load a sequence first."; downloadFile("reverse_complement.fasta", toFASTA([{id:state.name+"_revcomp", description:"reverse complement", seq:reverseComplement(state.seq)}])); return "Reverse complement downloaded."; }],
+    ["Download six-frame translation", function(){ if(!state.seq) return "Load a sequence first."; downloadFile("translation.txt", translationText()); return "Translation downloaded."; }],
+    ["Download ORF results (CSV)", function(){ if(!state.lastORFs.length) return "Run the ORF Finder first."; downloadFile("orfs.csv", orfsCSV(), "text/csv"); return "ORF CSV downloaded."; }],
+    ["Download restriction sites (CSV)", function(){ if(!state.lastSites.length) return "Run Restriction Map first."; downloadFile("restriction_sites.csv", sitesCSV(), "text/csv"); return "Restriction CSV downloaded."; }],
+    ["Download motif results (CSV)", function(){ if(!state.lastMotifs.length) return "Run Motif Search first."; downloadFile("motif_hits.csv", motifCSV(), "text/csv"); return "Motif CSV downloaded."; }],
+    ["Download GC window data (CSV)", function(){ if(!state.seq) return "Load a sequence first."; if(!state.lastGC.length) renderGC(); var csv="window_start,window_end,gc_percent\n"+state.lastGC.map(function(p){return p.start+","+p.end+","+p.gc.toFixed(2);}).join("\n")+"\n"; downloadFile("gc_windows.csv", csv, "text/csv"); return "GC data downloaded."; }]
+  ];
+  el.innerHTML="";
+  items.forEach(function(it){
+    var b=document.createElement("button"); b.type="button"; b.className="btn secondary"; b.textContent=it[0];
+    b.addEventListener("click",function(){ $("exportMsg").textContent=it[1]()||""; });
+    el.appendChild(b);
+  });
+}
+/* ---------- tests ---------- */
+function runTests(){
+  var tests=[];
+  function t(name, cond){ tests.push({name:name, pass:!!cond}); }
+  t("FASTA parsing reads 2 records", (function(){ var r=parseFASTA(">a desc\nACGT\n>b\nTTTT"); return r.length===2 && r[0].seq==="ACGT" && r[0].id==="a" && r[0].description==="desc"; })());
+  t("Base counting", (function(){ var c=baseCounts("AAGGCCTTNN"); return c.A===2&&c.G===2&&c.C===2&&c.T===2&&c.other===2; })());
+  t("GC percentage of GGCCAT is 66.67%", Math.abs(gcPercent("GGCCAT")-66.6667)<0.01);
+  t("Reverse complement of AAGCTT is AAGCTT (palindrome)", reverseComplement("AAGCTT")==="AAGCTT");
+  t("Reverse complement handles IUPAC (R codes Y)", reverseComplement("ACGR")==="YCGT");
+  t("Translation: ATGGCTTAA → MA* in standard code", translateFrame("ATGGCTTAA",0,codonTableFor("standard"))==="MA*");
+  t("Vertebrate mito code: TGA codes W, not stop", translateFrame("ATGTGA",0,codonTableFor("mito_vert"))==="MW");
+  t("ORF finder finds ATG…TAA ORF", (function(){ var o=findORFs("CCCATGAAAGGGTTTTAACCC",15,"standard"); return o.length>=1 && o[0].protein.indexOf("MKGF")===0; })());
+  t("EcoRI site found at correct position and cut", (function(){ var s=findRestrictionSites("AAAAGAATTCTTT", ["EcoRI"], false); return s.length===1 && s[0].pos===5 && s[0].cutPos===5; })());
+  t("Motif search finds overlapping matches", findMotif("ATATA","ATA",false).length===2);
+  t("Motif search supports IUPAC N", findMotif("ACGTACGT","ANG",false).length===2);
+  t("Circular motif search wraps the origin", findMotif("TTACGT","CGTTT",true).length===1);
+  t("Linear fragments from one cut", (function(){ var f=restrictionFragments(100,[{cutPos:30}],false); return f.length===2 && f[0]===70 && f[1]===30; })());
+  t("Circular fragments from two cuts", (function(){ var f=restrictionFragments(100,[{cutPos:20},{cutPos:60}],true); return f.length===2 && f[0]===60 && f[1]===40; })());
+  t("RSCU of a lone codon family is balanced", (function(){ var r=rscu({"TTT":4,"TTC":4}); return Math.abs(r["TTT"]-1)<0.001 && Math.abs(r["TTC"]-1)<0.001; })());
+  t("B-DNA math: 20,000 bp = 6,800 nm and 1904.8 turns", Math.abs(20000*0.34-6800)<0.01 && Math.abs(20000/10.5-1904.76)<0.01);
+  t("Seeded long example is deterministic and 20,000 bp", buildLongExample().length===20000 && buildLongExample()===buildLongExample());
+  t("Long example contains its EcoRI landmark", buildLongExample().indexOf("GAATTC")===8000);
+  var passed=tests.filter(function(x){return x.pass;}).length;
+  $("testResults").innerHTML='<p><strong>'+passed+" / "+tests.length+' tests passed.</strong></p>'
+    + tests.map(function(x){ return '<p style="margin:4px 0" class="'+(x.pass?"test-pass":"test-fail")+'">'+(x.pass?"✓ PASS":"✗ FAIL")+' — <span style="color:var(--ink);font-weight:400">'+esc(x.name)+'</span></p>'; }).join("");
+}
+/* ---------- misc wiring ---------- */
+function copyText(txt, msgEl, msg){
+  function done(){ if(msgEl) msgEl.textContent=msg; }
+  function fallback(){
+    var ta=document.createElement("textarea"); ta.value=txt; document.body.appendChild(ta); ta.select();
+    try{ document.execCommand("copy"); }catch(e){}
+    ta.remove(); done();
+  }
+  if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(txt).then(done, fallback); } else fallback();
+}
+function toggleTheme(){
+  var cur=document.documentElement.getAttribute("data-theme");
+  document.documentElement.setAttribute("data-theme", cur==="dark"?"light":"dark");
+  renderHelix();
+}
+function init(){
+  buildTabs(); buildToolViews(); buildExport();
+  /* examples */
+  var eb=$("exampleBtns");
+  Object.keys(EXAMPLES).forEach(function(k){
+    var ex=EXAMPLES[k];
+    var b=document.createElement("button"); b.type="button"; b.className="btn secondary small"; b.textContent=ex.name;
+    b.addEventListener("click",function(){
+      var seq = ex.gen? buildLongExample() : ex.seq;
+      $("seqInput").value=">"+ex.name+"\n"+seq;
+      $("exampleDesc").textContent=ex.desc;
+      loadFromText(ex.file || (ex.name+".fasta"));
+    });
+    eb.appendChild(b);
+  });
+  $("inputToggle").addEventListener("click", function(){
+    var body=$("inputBody"), open=body.style.display!=="none";
+    body.style.display=open? "none":"";
+    this.setAttribute("aria-expanded", String(!open));
+    this.textContent=open? "Load a sequence ▸" : "Load a sequence ▾";
+    requestHelixRender();
+  });
+  $("loadBtn").addEventListener("click", function(){ loadFromText(); });
+  $("clearBtn").addEventListener("click", function(){ $("seqInput").value=""; stopScan(); setSequence([],0,"—"); $("inputMsg").className="msg"; $("inputMsg").style.display="none"; });
+  $("fileInput").addEventListener("change", function(){
+    var f=this.files && this.files[0]; if(!f) return;
+    var reader=new FileReader();
+    reader.onload=function(){ $("seqInput").value=String(reader.result||""); loadFromText(f.name); };
+    reader.readAsText(f);
+    this.value="";
+  });
+  $("recordPicker").addEventListener("change", function(){ setSequence(state.records, parseInt(this.value,10)||0); });
+  /* top bar */
+  $("themeBtn").addEventListener("click", toggleTheme);
+  $("scanBtn").addEventListener("click", toggleScan);
+  $("playBtn").addEventListener("click", toggleScan);
+  /* helix interactions */
+  var sc=$("helixScroll");
+  sc.addEventListener("scroll", requestHelixRender);
+  sc.addEventListener("click", function(e){
+    var t=e.target;
+    while(t && t!==sc && !t.getAttribute("data-pos")) t=t.parentNode;
+    if(t && t.getAttribute && t.getAttribute("data-pos")) selectPair(parseInt(t.getAttribute("data-pos"),10), null);
+  });
+  window.addEventListener("resize", requestHelixRender);
+  $("rcToggle").addEventListener("change", function(){
+    state.rc=this.checked; applyMotif(false); renderHelix(true); updateDetails();
+  });
+  $("zoomIn").addEventListener("click", function(){ setZoom(state.zoom+0.15); });
+  $("zoomOut").addEventListener("click", function(){ setZoom(state.zoom-0.15); });
+  function setZoom(z){
+    state.zoom=Math.max(0.65, Math.min(1.9, Math.round(z*100)/100));
+    $("zoomLbl").textContent=Math.round(state.zoom*100)+"%";
+    ensureVisible(state.sel,true); renderHelix(true);
+  }
+  /* scan controls */
+  $("speedRange").addEventListener("input", function(){
+    state.speed=parseInt(this.value,10)||12;
+    $("speedLbl").textContent=state.speed+" pairs/s";
+  });
+  $("jumpRange").addEventListener("input", function(){ selectPair(parseInt(this.value,10),"auto"); });
+  $("jumpNum").addEventListener("change", function(){ selectPair(parseInt(this.value,10),"center"); });
+  $("jumpGo").addEventListener("click", function(){ selectPair(parseInt($("jumpNum").value,10),"center"); });
+  document.addEventListener("keydown", function(e){
+    if(state.view!=="scanner") return;
+    var tag=(e.target && e.target.tagName)||"";
+    if(tag==="INPUT"||tag==="TEXTAREA"||tag==="SELECT") return;
+    if(e.key===" "){ e.preventDefault(); toggleScan(); }
+    else if(e.key==="ArrowDown"){ e.preventDefault(); selectPair(state.sel+1,"auto"); }
+    else if(e.key==="ArrowUp"){ e.preventDefault(); selectPair(state.sel-1,"auto"); }
+  });
+  /* motif in helix */
+  $("motifGo").addEventListener("click", function(){ applyMotif(true); if(state.motifHits.length) selectPair(state.motifHits[0],"center"); });
+  $("motifInputScanner").addEventListener("keydown", function(e){ if(e.key==="Enter"){ applyMotif(true); if(state.motifHits.length) selectPair(state.motifHits[0],"center"); } });
+  $("motifPrev").addEventListener("click", function(){ motifJump(-1); });
+  $("motifNext").addEventListener("click", function(){ motifJump(1); });
+  /* right panel exports */
+  $("dlFastaBtn").addEventListener("click", function(){ if(state.records.length) downloadFile("sequences.fasta", toFASTA(state.records)); });
+  $("dlStatsBtn").addEventListener("click", function(){ if(state.seq) downloadFile("statistics.csv", statsCSV(), "text/csv"); });
+  $("dlPngBtn").addEventListener("click", downloadHelixPNG);
+  /* gc */
+  $("gcRun").addEventListener("click", renderGC);
+  $("gcSvgDl").addEventListener("click", function(){ var svg=$("gcSvg"); if(svg) downloadFile("gc_chart.svg", new XMLSerializer().serializeToString(svg), "image/svg+xml"); });
+  /* translation */
+  $("codeSelect").addEventListener("change", function(){ state.code=this.value; renderTranslation(); });
+  $("copyRcBtn").addEventListener("click", function(){ copyText(reverseComplement(state.seq), $("rcMsg"), "Reverse complement copied."); });
+  $("dlRcBtn").addEventListener("click", function(){ if(state.seq) downloadFile("reverse_complement.fasta", toFASTA([{id:state.name+"_revcomp",description:"reverse complement",seq:reverseComplement(state.seq)}])); });
+  $("loadRcBtn").addEventListener("click", function(){ if(!state.seq) return; var rc=reverseComplement(state.seq); setSequence([{id:state.name+"_revcomp", description:"reverse complement of "+state.name, seq:rc}],0,state.name+"_revcomp.fasta"); $("rcMsg").textContent="Reverse complement loaded as the current sequence."; renderTranslation(); });
+  $("dlTransBtn").addEventListener("click", function(){ if(state.seq) downloadFile("translation.txt", translationText()); });
+  /* orf */
+  $("orfRun").addEventListener("click", renderORFs);
+  $("dlOrfBtn").addEventListener("click", function(){ if(state.lastORFs.length) downloadFile("orfs.csv", orfsCSV(), "text/csv"); else $("orfMsg").textContent="Run the ORF Finder first."; });
+  $("copyProtBtn").addEventListener("click", function(){ if(selectedORF) copyText(selectedORF.protein, $("orfMsg"), "Protein copied ("+selectedORF.lengthAa+" aa)."); else $("orfMsg").textContent="Select an ORF row first."; });
+  /* restriction */
+  $("enzRun").addEventListener("click", renderRestriction);
+  $("circToggle").addEventListener("change", renderRestriction);
+  $("dlEnzBtn").addEventListener("click", function(){ if(state.lastSites.length) downloadFile("restriction_sites.csv", sitesCSV(), "text/csv"); });
+  /* motif tab */
+  $("motifRun").addEventListener("click", renderMotifTab);
+  $("dlMotifBtn").addEventListener("click", function(){ if(state.lastMotifs.length) downloadFile("motif_hits.csv", motifCSV(), "text/csv"); });
+  /* compare + codon */
+  $("cmpRun").addEventListener("click", renderCompare);
+  $("codonRun").addEventListener("click", renderCodon);
+  $("dlCodonBtn").addEventListener("click", function(){ if(lastCodonCSV) downloadFile("codon_usage.csv", lastCodonCSV, "text/csv"); });
+  /* tests */
+  $("testRun").addEventListener("click", runTests);
+  /* default: the long 20,000 bp example, like the original DNA.fasta file */
+  var longSeq=buildLongExample();
+  $("seqInput").value=">DNA.fasta synthetic long example\n"+longSeq;
+  $("exampleDesc").textContent=EXAMPLES.long.desc;
+  setSequence([{id:"DNA.fasta", description:"synthetic long example, 20,000 bp", seq:longSeq}],0,"DNA.fasta.txt");
+  selectPair(1,null);
+}
+document.addEventListener("DOMContentLoaded", init);
+</script>
+</body>
+</html>
