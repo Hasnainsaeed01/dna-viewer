@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="color-scheme" content="light dark" />
+<link rel="icon" href="data:," />
+<title>DNA Viewer — Double Helix Scanner &amp; Sequence Analysis</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<header class="topbar">
+  <div class="logo">
+    <svg class="mark" viewBox="0 0 40 40" aria-hidden="true"><path d="M13 3 C13 12, 27 16, 27 20 C27 24, 13 28, 13 37" fill="none" stroke="#2fbf9b" stroke-width="3.4" stroke-linecap="round"/><path d="M27 3 C27 12, 13 16, 13 20 C13 24, 27 28, 27 37" fill="none" stroke="#4aa3e8" stroke-width="3.4" stroke-linecap="round"/><line x1="15.5" y1="9" x2="24.5" y2="9" stroke="#8fa3b5" stroke-width="2"/><line x1="14" y1="20" x2="26" y2="20" stroke="#8fa3b5" stroke-width="2"/><line x1="15.5" y1="31" x2="24.5" y2="31" stroke="#8fa3b5" stroke-width="2"/></svg>
+    <span>DNA&nbsp;VIEWER</span>
+  </div>
+  <div class="topmeta">
+    <span class="meta-item file" id="topFile">File: DNA.fasta.txt</span>
+    <span class="meta-item"><b id="topLen">0</b>&nbsp;bp</span>
+    <span class="meta-item hideS"><b id="topNm">0</b>&nbsp;nm long</span>
+    <span class="meta-item hideS"><b id="topTurns">0</b>&nbsp;helix turns</span>
+    <span class="meta-item hideS">GC&nbsp;<b id="topGC">—</b></span>
+  </div>
+  <div class="spacer"></div>
+  <button class="iconbtn" id="themeBtn" type="button" title="Toggle light / dark mode">◐ Theme</button>
+  <button class="scanbtn" id="scanBtn" type="button"><span class="dot"></span><span id="scanBtnTxt">SCANNING</span></button>
+</header>
+
+<nav class="tabbar" id="tabbar" aria-label="Views"></nav>
+
+<main id="main">
+  <!-- ================= SCANNER (home) ================= -->
+  <section class="view active" id="view-scanner">
+    <div class="inputbar" id="inputPanel">
+      <div class="inputhead"><button type="button" id="inputToggle" aria-expanded="true">Load a sequence ▾</button><span>Paste DNA / FASTA, upload a file, or pick a built-in example — everything is processed locally in your browser.</span></div>
+      <div id="inputBody">
+      <div class="msg" id="inputMsg"></div>
+      <div class="inputgrid">
+        <div>
+          <textarea class="seqin" id="seqInput" spellcheck="false" placeholder="Paste a raw DNA sequence, or FASTA text starting with a &gt; header line…"></textarea>
+          <div class="row" style="margin-top:8px">
+            <button class="btn small" id="loadBtn" type="button">Load sequence</button>
+            <label class="btn secondary small" for="fileInput" style="margin:0">Upload FASTA file</label>
+            <input type="file" id="fileInput" accept=".fa,.fasta,.fna,.txt" style="display:none">
+            <button class="btn secondary small" id="clearBtn" type="button">Clear</button>
+            <select id="recordPicker" style="max-width:300px" aria-label="Loaded FASTA records"></select>
+          </div>
+        </div>
+        <div>
+          <label class="f">Built-in examples</label>
+          <div class="row" id="exampleBtns"></div>
+          <p style="color:var(--muted);font-size:12.5px;margin:8px 0 0;max-width:380px" id="exampleDesc"></p>
+        </div>
+      </div>
+      </div>
+    </div>
+
+    <div class="scanner">
+      <!-- LEFT: helix -->
+      <div class="panel left">
+        <div class="panelhead">
+          <h2>Double Helix 3D (DNA)</h2>
+          <div class="spacer"></div>
+          <label class="chk" style="margin:0"><input type="checkbox" id="rcToggle"> Reverse complement</label>
+          <div class="zoomctl" role="group" aria-label="Helix zoom">
+            <button type="button" id="zoomOut" title="Zoom out">−</button>
+            <span id="zoomLbl">100%</span>
+            <button type="button" id="zoomIn" title="Zoom in">+</button>
+          </div>
+        </div>
+        <div class="scanctl">
+          <button class="playbtn" id="playBtn" type="button">▶ Scan</button>
+          <label>Speed <input type="range" id="speedRange" min="1" max="120" value="12"> <span class="mono" id="speedLbl">12 pairs/s</span></label>
+          <div class="jumpctl">
+            <label for="jumpRange" style="flex:0 0 auto">Jump to pair</label>
+            <input type="range" id="jumpRange" min="1" max="1" value="1">
+            <input type="number" id="jumpNum" min="1" value="1" aria-label="Pair number">
+            <button class="btn secondary small" id="jumpGo" type="button">Go</button>
+          </div>
+        </div>
+        <div class="motifbar">
+          <label for="motifInputScanner" style="font-size:12.5px;font-weight:700;color:var(--muted)">Motif</label>
+          <input type="text" id="motifInputScanner" class="mono" placeholder="e.g. TATAAA or GAATTC (IUPAC codes OK)" spellcheck="false">
+          <button class="btn secondary small" id="motifGo" type="button">Highlight in helix</button>
+          <button class="btn secondary small" id="motifPrev" type="button">↑ Prev</button>
+          <button class="btn secondary small" id="motifNext" type="button">↓ Next</button>
+          <span class="mcount" id="motifCount"></span>
+        </div>
+        <div id="helixScroll" tabindex="0" aria-label="Scrollable double helix. Click any base pair to inspect it.">
+          <div id="helixSpacer"></div>
+        </div>
+        <div style="flex:0 0 auto;padding:8px 16px;border-top:1px solid var(--line)">
+          <div class="legend">
+            <span><i class="sw" style="background:var(--a)"></i>A</span>
+            <span><i class="sw" style="background:var(--t)"></i>T</span>
+            <span><i class="sw" style="background:var(--g)"></i>G</span>
+            <span><i class="sw" style="background:var(--c)"></i>C</span>
+            <span><i class="sw" style="background:var(--n)"></i>N</span>
+            <span><i class="sw" style="background:transparent;border:2px solid var(--sel)"></i>Selected pair</span>
+            <span><i class="sw" style="background:transparent;border:2px solid var(--motif)"></i>Motif match</span>
+            <span style="margin-left:auto">Scroll the helix · click any pair to inspect it</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT: pair details -->
+      <div class="panel right" id="detailPanel">
+        <p class="pairhead" id="pairHead">Pair 1 <span>of 0</span></p>
+        <p style="margin:0;color:var(--muted);font-size:13px" id="pairSub">Load a sequence to start scanning.</p>
+        <div class="strandline"><span class="tag">Strand 1<br>5′ → 3′</span><span class="big" id="s1Tile">–</span><span class="nm" id="s1Name">—</span></div>
+        <div class="strandline"><span class="tag">Strand 2<br>3′ → 5′</span><span class="big" id="s2Tile">–</span><span class="nm" id="s2Name">—</span></div>
+        <div class="matchline" id="matchLine"><span class="mtag">MATCH</span><span id="matchTxt">—</span></div>
+
+        <div class="stripwrap">
+          <div class="cap">Neighboring pairs — click a tile to jump</div>
+          <div class="strip" id="pairStrip"></div>
+        </div>
+
+        <div class="ministats" id="miniStats"></div>
+        <div class="basebars" id="baseBars"></div>
+        <div id="gcMini"></div>
+
+        <div class="factbox">
+          <h3>Helix Facts — B-DNA</h3>
+          <ul>
+            <li><b>Rise:</b> 3.4 Å per base pair</li>
+            <li><b>Base pairs per turn:</b> 10.5</li>
+            <li><b>Pitch:</b> 34 Å per full turn</li>
+            <li><b>Diameter:</b> 2.0 nm</li>
+            <li><b>Handedness:</b> right-handed double helix</li>
+            <li><b>Strands:</b> antiparallel (5′→3′ against 3′→5′)</li>
+            <li><b>Major groove:</b> 2.2 nm wide</li>
+            <li><b>Minor groove:</b> 1.2 nm wide</li>
+          </ul>
+        </div>
+        <div class="factbox">
+          <h3>Pairing Rules</h3>
+          <ul>
+            <li><b>A – T:</b> 2 hydrogen bonds (weaker)</li>
+            <li><b>G – C:</b> 3 hydrogen bonds (stronger)</li>
+            <li>Strand 1 runs <b>5′ → 3′</b>; Strand 2 runs <b>3′ → 5′</b></li>
+            <li>Each strand is the exact complement of the other</li>
+          </ul>
+        </div>
+        <div class="row" style="margin-top:16px">
+          <button class="btn secondary small" id="dlFastaBtn" type="button">⬇ FASTA</button>
+          <button class="btn secondary small" id="dlStatsBtn" type="button">⬇ Statistics CSV</button>
+          <button class="btn secondary small" id="dlPngBtn" type="button">⬇ Helix snapshot (PNG)</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- other views are injected by JS -->
+  <div id="toolViews"></div>
+</main>
+<div class="tooltip" id="tooltip"></div>
+<footer class="foot">DNA Viewer runs 100% locally in your browser — no server, no account, sequences never leave this device. Multi-file build: works offline, e.g. on GitHub Pages.</footer>
+
+<script src="bio.js"></script>
+
+<script src="helix.js"></script>
+
+<script src="tools.js"></script>
+</body>
+</html>
